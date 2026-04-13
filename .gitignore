@@ -25,6 +25,8 @@ yarn-error.log*
 pnpm-debug.log*
 *.pid
 *.pid.lock
+yarn.lock
+pnpm.lock*
 
 # Environment files
 .env

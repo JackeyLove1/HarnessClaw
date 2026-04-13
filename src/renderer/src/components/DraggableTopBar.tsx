@@ -1,6 +1,6 @@
 export const DraggableTopBar = () => {
   return (
-    <header className="absolute top-0 right-0 left-0 z-50 flex h-8 items-center justify-end bg-transparent px-1">
+    <header className="absolute top-0 right-0 left-0 z-50 flex h-8 items-center justify-end bg-transparent px-1 ">
       <div className="flex items-center gap-1">
         <button
           type="button"
