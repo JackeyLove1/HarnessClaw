@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
-import { DraggableTopBar } from './components/DraggableTopBar'
-import { Sidebar } from './components/Sidebar'
-import { Topbar } from './components/Topbar'
-import { PageHeader } from './components/Editor/PageHeader'
-import { BlockEditor } from './components/Editor/BlockEditor'
-import { useNoteStore } from './store/noteStore'
+import { useEffect } from 'react';
+import { DraggableTopBar } from './components/DraggableTopBar';
+import { BlockEditor } from './components/Editor/BlockEditor';
+import { PageHeader } from './components/Editor/PageHeader';
+import { Sidebar } from './components/Sidebar';
+import { Topbar } from './components/Topbar';
+import { useNoteStore } from './store/noteStore';
 
 function App(): JSX.Element {
   const hydrateNotes = useNoteStore((state) => state.hydrateNotes)
