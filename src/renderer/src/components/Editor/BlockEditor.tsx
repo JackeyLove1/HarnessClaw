@@ -1,20 +1,20 @@
-import { ComponentProps } from 'react'
-import { twMerge } from 'tailwind-merge'
 import {
-  MDXEditor,
-  headingsPlugin,
-  listsPlugin,
-  markdownShortcutPlugin,
-  quotePlugin,
-  thematicBreakPlugin,
-  toolbarPlugin,
-  UndoRedo,
-  BlockTypeSelect,
-  BoldItalicUnderlineToggles
-} from '@mdxeditor/editor'
-import '@mdxeditor/editor/style.css'
-import { useNoteStore } from '@renderer/store/noteStore'
-import { cn } from '@renderer/utils'
+    BlockTypeSelect,
+    BoldItalicUnderlineToggles,
+    headingsPlugin,
+    listsPlugin,
+    markdownShortcutPlugin,
+    MDXEditor,
+    quotePlugin,
+    thematicBreakPlugin,
+    toolbarPlugin,
+    UndoRedo
+} from '@mdxeditor/editor';
+import '@mdxeditor/editor/style.css';
+import { useNoteStore } from '@renderer/store/noteStore';
+import { cn } from '@renderer/utils';
+import { ComponentProps } from 'react';
+import { twMerge } from 'tailwind-merge';
 
 export const BlockEditor = ({ className, ...props }: ComponentProps<'div'>): JSX.Element => {
   const currentPageId = useNoteStore((state) => state.currentPageId)
