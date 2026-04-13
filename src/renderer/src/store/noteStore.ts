@@ -5,9 +5,22 @@ export type NoteInfo = {
   lastEditTime: number
 }
 
+export type PageTreeItem = {
+  id: string
+  title: string
+  parentId: string | null
+  children: string[]
+  emoji: string | null
+  cover: string | null
+  lastEditTime: number
+}
+
 export type NoteStoreState = {
   notes: NoteInfo[]
+  pages: PageTreeItem[]
+  pageOrder: string[]
   currentNoteId: string | null
+  currentPageId: string | null
   currentNoteContent: string
   draftContent: string
   hasUnsavedChanges: boolean
@@ -17,17 +30,28 @@ export type NoteStoreState = {
   isCreating: boolean
   isDeleting: boolean
   error: string | null
+  sidebarCollapsed: boolean
+  sidebarWidth: number
 }
 
 export type NoteStoreActions = {
   hydrateNotes: () => Promise<void>
   selectNote: (noteId: string) => Promise<void>
+  selectPage: (pageId: string) => Promise<void>
   setDraftContent: (content: string) => void
   saveCurrentNote: () => Promise<boolean>
   createNote: () => Promise<void>
+  createPage: (parentId: string | null, title?: string) => Promise<string>
   deleteCurrentNote: () => Promise<void>
+  deletePage: (pageId: string) => Promise<void>
+  updatePageMeta: (pageId: string, updates: Partial<Pick<PageTreeItem, 'title' | 'emoji' | 'cover'>>) => void
+  movePage: (pageId: string, newParentId: string | null, index: number) => void
+  toggleSidebar: () => void
+  setSidebarWidth: (width: number) => void
   reloadNotes: () => Promise<void>
   clearError: () => void
+  getChildPages: (parentId: string | null) => PageTreeItem[]
+  getPagePath: (pageId: string) => PageTreeItem[]
 }
 
 export type NoteStore = NoteStoreState & NoteStoreActions
@@ -37,17 +61,18 @@ type NoteContextBridge = {
   readNote: (title: string) => Promise<string | undefined>
   writeNote: (title: string, content: string) => Promise<void>
   createNote: () => Promise<unknown>
-  deleteNote: (title: string) => Promise<void>
+  deleteNote: (title: string) => Promise<boolean>
 }
 
 const emptyEditorState = {
   currentNoteId: null,
+  currentPageId: null,
   currentNoteContent: '',
   draftContent: '',
   hasUnsavedChanges: false
 } satisfies Pick<
   NoteStoreState,
-  'currentNoteId' | 'currentNoteContent' | 'draftContent' | 'hasUnsavedChanges'
+  'currentNoteId' | 'currentPageId' | 'currentNoteContent' | 'draftContent' | 'hasUnsavedChanges'
 >
 
 const getNoteContext = (): NoteContextBridge => {
@@ -151,6 +176,7 @@ export const useNoteStore = create<NoteStore>((set, get) => {
 
       set({
         currentNoteId: noteId,
+        currentPageId: noteId,
         currentNoteContent: content,
         draftContent: content,
         hasUnsavedChanges: false,
@@ -179,6 +205,8 @@ export const useNoteStore = create<NoteStore>((set, get) => {
 
   return {
     notes: [],
+    pages: [],
+    pageOrder: [],
     ...emptyEditorState,
     isHydrating: false,
     isReading: false,
@@ -186,6 +214,8 @@ export const useNoteStore = create<NoteStore>((set, get) => {
     isCreating: false,
     isDeleting: false,
     error: null,
+    sidebarCollapsed: false,
+    sidebarWidth: 260,
 
     hydrateNotes: async () => {
       if (get().isHydrating) {
@@ -203,6 +233,19 @@ export const useNoteStore = create<NoteStore>((set, get) => {
             : null) ?? notes[0]?.title
 
         set({ notes })
+
+        // Build page tree from flat notes
+        const pages: PageTreeItem[] = notes.map((note) => ({
+          id: note.title,
+          title: note.title,
+          parentId: null,
+          children: [],
+          emoji: null,
+          cover: null,
+          lastEditTime: note.lastEditTime
+        }))
+        const pageOrder = pages.map((p) => p.id)
+        set({ pages, pageOrder })
 
         if (!nextNoteId) {
           set({
@@ -411,7 +454,192 @@ export const useNoteStore = create<NoteStore>((set, get) => {
       }
     },
 
-    clearError: () => set({ error: null })
+    clearError: () => set({ error: null }),
+
+    selectPage: async (pageId) => {
+      if (!pageId || pageId === get().currentPageId) {
+        return
+      }
+
+      const page = get().pages.find((p) => p.id === pageId)
+      if (!page) {
+        return
+      }
+
+      if (get().hasUnsavedChanges) {
+        const didSave = await get().saveCurrentNote()
+        if (!didSave) {
+          return
+        }
+      }
+
+      await readNoteIntoEditor(pageId)
+    },
+
+    createPage: async (parentId, title) => {
+      const newPageId = title || `Untitled-${Date.now()}`
+
+      const newPage: PageTreeItem = {
+        id: newPageId,
+        title: newPageId,
+        parentId,
+        children: [],
+        emoji: null,
+        cover: null,
+        lastEditTime: Date.now()
+      }
+
+      // Also create the actual file via IPC
+      try {
+        await getNoteContext().writeNote(newPageId, '')
+      } catch {
+        // File might already exist, continue anyway
+      }
+
+      set((state) => {
+        const newPages = [...state.pages, newPage]
+        let newPageOrder = [...state.pageOrder]
+        let newPagesWithChild = newPages
+
+        if (parentId) {
+          newPagesWithChild = newPages.map((p) =>
+            p.id === parentId ? { ...p, children: [...p.children, newPageId] } : p
+          )
+        } else {
+          newPageOrder = [...newPageOrder, newPageId]
+        }
+
+        // Also update the notes list
+        const newNotes = [...state.notes, { title: newPageId, lastEditTime: Date.now() }]
+
+        return {
+          pages: newPagesWithChild,
+          pageOrder: newPageOrder,
+          notes: newNotes
+        }
+      })
+
+      return newPageId
+    },
+
+    deletePage: async (pageId) => {
+      const page = get().pages.find((p) => p.id === pageId)
+      if (!page) return
+
+      // Remove from parent's children
+      if (page.parentId) {
+        set((state) => ({
+          pages: state.pages.map((p) =>
+            p.id === page.parentId
+              ? { ...p, children: p.children.filter((id) => id !== pageId) }
+              : p
+          )
+        }))
+      }
+
+      // Remove page and its descendants
+      const idsToRemove = new Set<string>()
+      const collectDescendants = (id: string) => {
+        idsToRemove.add(id)
+        const p = get().pages.find((pg) => pg.id === id)
+        p?.children.forEach(collectDescendants)
+      }
+      collectDescendants(pageId)
+
+      set((state) => ({
+        pages: state.pages.filter((p) => !idsToRemove.has(p.id)),
+        pageOrder: state.pageOrder.filter((id) => !idsToRemove.has(id))
+      }))
+
+      if (get().currentPageId === pageId) {
+        const remaining = get().pages[0]
+        if (remaining) {
+          await readNoteIntoEditor(remaining.id)
+        } else {
+          set({ ...emptyEditorState })
+        }
+      }
+    },
+
+    updatePageMeta: (pageId, updates) => {
+      set((state) => ({
+        pages: state.pages.map((p) =>
+          p.id === pageId ? { ...p, ...updates, lastEditTime: Date.now() } : p
+        )
+      }))
+    },
+
+    movePage: (pageId, newParentId, index) => {
+      const page = get().pages.find((p) => p.id === pageId)
+      if (!page) return
+
+      // Remove from old parent
+      if (page.parentId) {
+        set((state) => ({
+          pages: state.pages.map((p) =>
+            p.id === page.parentId
+              ? { ...p, children: p.children.filter((id) => id !== pageId) }
+              : p
+          )
+        }))
+      } else {
+        set((state) => ({
+          pageOrder: state.pageOrder.filter((id) => id !== pageId)
+        }))
+      }
+
+      // Add to new parent
+      set((state) => {
+        let newPages = state.pages.map((p) => {
+          if (p.id === pageId) {
+            return { ...p, parentId: newParentId }
+          }
+          if (p.id === newParentId) {
+            const newChildren = [...p.children]
+            newChildren.splice(index, 0, pageId)
+            return { ...p, children: newChildren }
+          }
+          return p
+        })
+
+        if (!newParentId) {
+          const newPageOrder = [...state.pageOrder]
+          newPageOrder.splice(index, 0, pageId)
+          return { pages: newPages, pageOrder: newPageOrder }
+        }
+
+        return { pages: newPages }
+      })
+    },
+
+    toggleSidebar: () => {
+      set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }))
+    },
+
+    setSidebarWidth: (width) => {
+      set({ sidebarWidth: Math.min(400, Math.max(200, width)) })
+    },
+
+    getChildPages: (parentId) => {
+      const { pages } = get()
+      if (parentId === null) {
+        return pages.filter((p) => p.parentId === null)
+      }
+      return pages.filter((p) => p.parentId === parentId)
+    },
+
+    getPagePath: (pageId) => {
+      const { pages } = get()
+      const path: PageTreeItem[] = []
+      let current = pages.find((p) => p.id === pageId)
+
+      while (current) {
+        path.unshift(current)
+        current = current.parentId ? pages.find((p) => p.id === current!.parentId) : undefined
+      }
+
+      return path
+    }
   }
 })
 
