@@ -1,0 +1,118 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.astro/
+.vite/
+coverage/
+storybook-static/
+
+# Runtime and process files
+*.log
+*.log.*
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Caches and temp files
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Test artifacts
+.nyc_output/
+playwright-report/
+test-results/
+
+# Electron packaging artifacts
+release/
+
+# Python backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging/build artifacts
+.Python
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Python tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Python notebooks
+.ipynb_checkpoints/
+
+# Go middle layer
+bin/
+pkg/
+*.test
+coverage.out
+*.coverprofile
+
+# Rust middle layer
+target/
+Cargo.lock
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# claude and codex
+.claude/
+CLAUDE.md
+AGENTS.md
+.codex/
+.agents/
