@@ -1,4 +1,5 @@
 import ReactDOM from 'react-dom/client'
+import { HashRouter } from 'react-router-dom'
 import './assets/index.css'
 
 const escapeHtml = (message: string): string =>
@@ -38,7 +39,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 void import('./App')
   .then(({ default: App }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(<App />)
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <HashRouter>
+        <App />
+      </HashRouter>
+    )
   })
   .catch((error) => {
     renderFatalError(error instanceof Error ? error.stack || error.message : String(error))
