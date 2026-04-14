@@ -78,6 +78,10 @@ Exit code: ${details.exitCode}</pre>
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  if (is.dev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+  }
+
   chatSupervisor?.attachWindow(mainWindow)
 }
 

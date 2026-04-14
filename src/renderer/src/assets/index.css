@@ -4,19 +4,27 @@
 
 @layer base {
   :root {
-    --app-bg: #ece7df;
-    --shell-bg: rgba(252, 249, 244, 0.92);
-    --rail-bg: linear-gradient(180deg, #f4efe7 0%, #efe9df 100%);
-    --sidebar-bg: rgba(246, 241, 233, 0.92);
-    --content-bg: linear-gradient(180deg, rgba(253, 251, 247, 0.96) 0%, rgba(248, 244, 237, 0.96) 100%);
+    /* Panda Palette - Modern Minimalist */
+    --app-bg: #f5f5f7;
+    --shell-bg: rgba(255, 255, 255, 0.85);
+    --rail-bg: rgba(255, 255, 255, 0.6);
+    --sidebar-bg: rgba(255, 255, 255, 0.75);
+    --content-bg: #ffffff;
 
-    --ink-main: #2f2a24;
-    --ink-soft: #7c7468;
-    --ink-faint: #b1a798;
-    --ink-subtle: #5d5a56;
+    /* Ink colors - Gray scale */
+    --ink-main: #1a1a1a;
+    --ink-soft: #6b6b6b;
+    --ink-faint: #a1a1a1;
+    --ink-subtle: #3d3d3d;
 
-    --border-soft: rgba(147, 130, 100, 0.14);
-    --shadow-shell: 0 28px 80px rgba(79, 63, 38, 0.12);
+    /* Subtle borders */
+    --border-soft: rgba(0, 0, 0, 0.08);
+    --border-medium: rgba(0, 0, 0, 0.12);
+
+    /* Minimal shadows */
+    --shadow-shell: 0 8px 40px rgba(0, 0, 0, 0.06);
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.04);
+    --shadow-float: 0 4px 24px rgba(0, 0, 0, 0.08);
   }
 
   #root {
@@ -35,10 +43,7 @@
   }
 
   body {
-    background:
-      radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 28%),
-      radial-gradient(circle at top right, rgba(255, 227, 214, 0.58), transparent 24%),
-      linear-gradient(180deg, #efe9df 0%, #e6dfd4 100%);
+    background: linear-gradient(180deg, #f8f8fa 0%, #f0f0f2 100%);
   }
 
   code,
@@ -49,7 +54,7 @@
 
   /* Selection */
   ::selection {
-    background: rgba(139, 115, 71, 0.18);
+    background: rgba(0, 0, 0, 0.08);
   }
 
   /* Drag region for frameless window */
@@ -65,14 +70,14 @@
     -webkit-app-region: no-drag;
   }
 
-  /* Scrollbar */
+  /* Scrollbar - minimal */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(117, 102, 79, 0.16);
+    background: rgba(0, 0, 0, 0.1);
     border-radius: 99px;
   }
 
@@ -101,7 +106,7 @@
   @keyframes fade-up {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
@@ -110,12 +115,12 @@
   }
 
   .animate-fade-up {
-    animation: fade-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fade-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .notemark-shell {
-    grid-template-columns: 74px 240px minmax(0, 1fr);
-    backdrop-filter: blur(16px);
+    grid-template-columns: 72px 248px minmax(0, 1fr);
+    backdrop-filter: blur(20px);
   }
 
   @media (max-width: 1080px) {
