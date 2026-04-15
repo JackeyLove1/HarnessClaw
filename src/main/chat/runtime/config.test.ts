@@ -22,7 +22,8 @@ describe('runtime config', () => {
 
     expect(resolveRuntimeConfig()).toEqual({
       provider: 'openai',
-      model: 'gpt-4.1-mini'
+      model: 'gpt-4.1-mini',
+      baseUrl: undefined
     })
   })
 
@@ -55,10 +56,12 @@ describe('runtime config', () => {
     process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
     process.env.NOTEMARK_MODEL = 'claude-sonnet-4-20250514'
     process.env.ANTHROPIC_API_KEY = 'anthropic-key'
+    process.env.ANTHROPIC_BASE_URL = 'https://example-proxy.test/v1'
 
     expect(resolveRuntimeConfig()).toEqual({
       provider: 'anthropic',
-      model: 'claude-sonnet-4-20250514'
+      model: 'claude-sonnet-4-20250514',
+      baseUrl: 'https://example-proxy.test/v1'
     })
     expect(getApiKey('anthropic')).toBe('anthropic-key')
   })

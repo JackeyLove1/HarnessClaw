@@ -3,12 +3,21 @@ import type { ChatEvent } from '@shared/models'
 export type RuntimeConfig = {
   provider: string
   model: string
+  baseUrl?: string
 }
 
 export type GenerateTitleArgs = {
   sessionId: string
   userText: string
   assistantText: string
+}
+
+export type ConnectionTestResult = {
+  provider: string
+  model: string
+  baseUrl?: string
+  latencyMs: number
+  preview: string
 }
 
 export type RunTurnArgs = {
@@ -21,6 +30,7 @@ export type RunTurnArgs = {
 export type ChatRuntime = {
   runTurn: (args: RunTurnArgs) => AsyncIterable<ChatEvent>
   generateTitle: (args: GenerateTitleArgs) => Promise<string>
+  testConnection: () => Promise<ConnectionTestResult>
 }
 
 export type PiTypeRuntime = {
@@ -28,7 +38,16 @@ export type PiTypeRuntime = {
   String: (options?: Record<string, unknown>) => unknown
 }
 
-export type PiModelResolver = (provider: string, model: string) => unknown
+export type PiModel = {
+  id?: string
+  provider?: string
+  api?: string
+  baseUrl: string
+  headers?: Record<string, string>
+  compat?: Record<string, unknown>
+}
+
+export type PiModelResolver = (provider: string, model: string) => PiModel | undefined
 
 export type PiAiModule = {
   Type: PiTypeRuntime

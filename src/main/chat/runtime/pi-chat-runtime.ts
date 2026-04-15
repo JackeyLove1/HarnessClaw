@@ -7,10 +7,12 @@ import { createReadOnlyTools } from './tools'
 import type {
   AgentSubscriberEvent,
   ChatRuntime,
+  ConnectionTestResult,
   GenerateTitleArgs,
   PiAgentInstance,
   PiAgentModule,
   PiAiModule,
+  PiModel,
   RunTurnArgs
 } from './types'
 
@@ -58,7 +60,15 @@ export class PiChatRuntime implements ChatRuntime {
   private async createAgent(history: ChatEvent[]): Promise<{ agent: PiAgentInstance }> {
     const config = resolveRuntimeConfig()
     const { Agent, Type, getModel } = await this.loadPiModules()
-    const model = getModel(config.provider, config.model)
+    const resolvedModel = getModel(config.provider, config.model)
+
+    const model: PiModel | undefined =
+      resolvedModel && config.baseUrl
+        ? {
+            ...resolvedModel,
+            baseUrl: config.baseUrl
+          }
+        : resolvedModel
 
     if (!model) {
       throw new Error(`Unable to resolve model "${config.model}" for provider "${config.provider}".`)
@@ -77,6 +87,44 @@ export class PiChatRuntime implements ChatRuntime {
     })
 
     return { agent }
+  }
+
+  async testConnection(): Promise<ConnectionTestResult> {
+    const config = resolveRuntimeConfig()
+    const startedAt = Date.now()
+    const { agent } = await this.createAgent([])
+    let preview = ''
+
+    const unsubscribe = agent.subscribe((event: AgentSubscriberEvent) => {
+      if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
+        preview += String(event.assistantMessageEvent.delta ?? '')
+      }
+    })
+
+    const timeoutMs = 20_000
+    const timeoutId = setTimeout(() => {
+      agent.abort()
+    }, timeoutMs)
+
+    try {
+      await agent.prompt('Reply with exactly "pong".')
+      return {
+        provider: config.provider,
+        model: config.model,
+        baseUrl: config.baseUrl,
+        latencyMs: Date.now() - startedAt,
+        preview: clampText(preview || 'pong', 160)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (Date.now() - startedAt >= timeoutMs) {
+        throw new Error(`Connection test timed out after ${timeoutMs / 1000}s. ${message}`.trim())
+      }
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
+      unsubscribe()
+    }
   }
 
   async *runTurn({ sessionId, userText, history = [], signal }: RunTurnArgs): AsyncIterable<ChatEvent> {

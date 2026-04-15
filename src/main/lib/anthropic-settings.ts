@@ -1,11 +1,13 @@
-import type { AnthropicSettings } from '@shared/types'
+import type { AnthropicSettings, ConnectionCheckResult } from '@shared/types'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
+import { createChatRuntime } from '../chat/runtime'
 
 const ANTHROPIC_BASE_URL_KEY = 'ANTHROPIC_BASE_URL'
 const ANTHROPIC_API_KEY = 'ANTHROPIC_API_KEY'
 const PROVIDER_KEY = 'NOTEMARK_MODEL_PROVIDER'
+const MODEL_KEY = 'NOTEMARK_MODEL'
 
 const deepclawEnvPath = join(os.homedir(), '.deepclaw', '.env')
 
@@ -83,6 +85,7 @@ const buildUpdatedEnv = (currentEnvSource: string, updates: Record<string, strin
 const applySettingsToProcessEnv = (settings: AnthropicSettings): void => {
   process.env[ANTHROPIC_BASE_URL_KEY] = settings.baseUrl
   process.env[ANTHROPIC_API_KEY] = settings.apiKey
+  process.env[MODEL_KEY] = settings.model
   process.env[PROVIDER_KEY] = 'anthropic'
 }
 
@@ -92,7 +95,8 @@ export const getAnthropicSettings = async (): Promise<AnthropicSettings> => {
 
   return {
     baseUrl: envEntries.get(ANTHROPIC_BASE_URL_KEY) ?? '',
-    apiKey: envEntries.get(ANTHROPIC_API_KEY) ?? ''
+    apiKey: envEntries.get(ANTHROPIC_API_KEY) ?? '',
+    model: envEntries.get(MODEL_KEY) ?? 'claude-sonnet-4-20250514'
   }
 }
 
@@ -101,7 +105,8 @@ export const saveAnthropicSettings = async (
 ): Promise<AnthropicSettings> => {
   const nextSettings: AnthropicSettings = {
     baseUrl: settings.baseUrl.trim(),
-    apiKey: settings.apiKey.trim()
+    apiKey: settings.apiKey.trim(),
+    model: settings.model.trim()
   }
 
   if (!nextSettings.baseUrl) {
@@ -112,10 +117,15 @@ export const saveAnthropicSettings = async (
     throw new Error('API Key 不能为空。')
   }
 
+  if (!nextSettings.model) {
+    throw new Error('Model Name 不能为空。')
+  }
+
   const source = await readDeepclawEnvFile()
   const nextSource = buildUpdatedEnv(source, {
     [ANTHROPIC_BASE_URL_KEY]: nextSettings.baseUrl,
     [ANTHROPIC_API_KEY]: nextSettings.apiKey,
+    [MODEL_KEY]: nextSettings.model,
     [PROVIDER_KEY]: 'anthropic'
   })
   await writeDeepclawEnvFile(nextSource)
@@ -129,4 +139,60 @@ export const hydrateAnthropicSettings = async (): Promise<void> => {
   if (!settings.baseUrl || !settings.apiKey) return
 
   applySettingsToProcessEnv(settings)
+}
+
+const withTemporaryAnthropicEnv = async <T>(
+  settings: AnthropicSettings,
+  task: () => Promise<T>
+): Promise<T> => {
+  const previousValues = {
+    [ANTHROPIC_BASE_URL_KEY]: process.env[ANTHROPIC_BASE_URL_KEY],
+    [ANTHROPIC_API_KEY]: process.env[ANTHROPIC_API_KEY],
+    [PROVIDER_KEY]: process.env[PROVIDER_KEY],
+    [MODEL_KEY]: process.env[MODEL_KEY]
+  }
+
+  process.env[ANTHROPIC_BASE_URL_KEY] = settings.baseUrl
+  process.env[ANTHROPIC_API_KEY] = settings.apiKey
+  process.env[MODEL_KEY] = settings.model
+  process.env[PROVIDER_KEY] = 'anthropic'
+
+  try {
+    return await task()
+  } finally {
+    for (const [key, value] of Object.entries(previousValues)) {
+      if (typeof value === 'undefined') {
+        delete process.env[key]
+      } else {
+        process.env[key] = value
+      }
+    }
+  }
+}
+
+export const testAnthropicConnection = async (
+  settings: AnthropicSettings
+): Promise<ConnectionCheckResult> => {
+  const sanitized: AnthropicSettings = {
+    baseUrl: settings.baseUrl.trim(),
+    apiKey: settings.apiKey.trim(),
+    model: settings.model.trim()
+  }
+
+  if (!sanitized.baseUrl) {
+    throw new Error('Base URL 不能为空。')
+  }
+
+  if (!sanitized.apiKey) {
+    throw new Error('API Key 不能为空。')
+  }
+
+  if (!sanitized.model) {
+    throw new Error('Model Name 不能为空。')
+  }
+
+  return withTemporaryAnthropicEnv(sanitized, async () => {
+    const runtime = createChatRuntime()
+    return runtime.testConnection()
+  })
 }

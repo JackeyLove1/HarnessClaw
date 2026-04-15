@@ -6,6 +6,7 @@ import type {
   GetAnthropicSettings,
   GetNotes,
   ReadNote,
+  TestAnthropicConnection,
   SaveAnthropicSettings,
   WriteNote
 } from '@shared/types'
@@ -16,7 +17,8 @@ import { ChatSupervisor } from './chat/supervisor'
 import {
   getAnthropicSettings,
   hydrateAnthropicSettings,
-  saveAnthropicSettings
+  saveAnthropicSettings,
+  testAnthropicConnection
 } from './lib/anthropic-settings'
 import { initDatabase } from './lib/database'
 
@@ -167,6 +169,10 @@ function registerSettingsIpc(): void {
   )
   ipcMain.handle('settings:saveAnthropic', (_, ...args: Parameters<SaveAnthropicSettings>) =>
     saveAnthropicSettings(...args)
+  )
+  ipcMain.handle(
+    'settings:testAnthropicConnection',
+    (_, ...args: Parameters<TestAnthropicConnection>) => testAnthropicConnection(...args)
   )
 }
 

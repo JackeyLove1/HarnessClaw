@@ -13,6 +13,7 @@ import type {
   SearchSessions,
   SendMessage,
   SubscribeChatEvents,
+  TestAnthropicConnection,
   UpdateSessionTitle,
   WindowClose,
   WindowIsMaximized,
@@ -45,6 +46,7 @@ declare global {
       windowClose: WindowClose
       getAnthropicSettings: GetAnthropicSettings
       saveAnthropicSettings: SaveAnthropicSettings
+      testAnthropicConnection: TestAnthropicConnection
     }
   }
 }

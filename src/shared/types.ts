@@ -27,7 +27,17 @@ export type WindowClose = () => Promise<void>
 export interface AnthropicSettings {
   baseUrl: string
   apiKey: string
+  model: string
+}
+
+export interface ConnectionCheckResult {
+  provider: string
+  model: string
+  baseUrl?: string
+  latencyMs: number
+  preview: string
 }
 
 export type GetAnthropicSettings = () => Promise<AnthropicSettings>
 export type SaveAnthropicSettings = (settings: AnthropicSettings) => Promise<AnthropicSettings>
+export type TestAnthropicConnection = (settings: AnthropicSettings) => Promise<ConnectionCheckResult>

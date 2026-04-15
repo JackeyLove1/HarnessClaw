@@ -14,6 +14,7 @@ import type {
   SearchSessions,
   SendMessage,
   SubscribeChatEvents,
+  TestAnthropicConnection,
   UpdateSessionTitle,
   WindowClose,
   WindowIsMaximized,
@@ -85,7 +86,12 @@ try {
     getAnthropicSettings: (...args: Parameters<GetAnthropicSettings>) =>
       invoke<Awaited<ReturnType<GetAnthropicSettings>>>('settings:getAnthropic', ...args),
     saveAnthropicSettings: (...args: Parameters<SaveAnthropicSettings>) =>
-      invoke<Awaited<ReturnType<SaveAnthropicSettings>>>('settings:saveAnthropic', ...args)
+      invoke<Awaited<ReturnType<SaveAnthropicSettings>>>('settings:saveAnthropic', ...args),
+    testAnthropicConnection: (...args: Parameters<TestAnthropicConnection>) =>
+      invoke<Awaited<ReturnType<TestAnthropicConnection>>>(
+        'settings:testAnthropicConnection',
+        ...args
+      )
   })
 } catch (error) {
   console.error(error)

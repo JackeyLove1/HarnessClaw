@@ -1,6 +1,12 @@
 import process from 'node:process'
 import type { RuntimeConfig } from './types'
 
+const getBaseUrl = (provider: string): string | undefined => {
+  if (provider === 'openai') return process.env.OPENAI_BASE_URL?.trim() || undefined
+  if (provider === 'anthropic') return process.env.ANTHROPIC_BASE_URL?.trim() || undefined
+  return undefined
+}
+
 export const resolveRuntimeConfig = (): RuntimeConfig => {
   const provider =
     process.env.NOTEMARK_MODEL_PROVIDER ??
@@ -35,7 +41,11 @@ export const resolveRuntimeConfig = (): RuntimeConfig => {
     throw new Error('Chat runtime is missing ANTHROPIC_API_KEY for the configured Anthropic model.')
   }
 
-  return { provider, model }
+  return {
+    provider,
+    model,
+    baseUrl: getBaseUrl(provider)
+  }
 }
 
 export const getApiKey = (provider: string): string | undefined => {

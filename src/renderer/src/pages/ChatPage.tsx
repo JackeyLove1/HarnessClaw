@@ -623,9 +623,14 @@ export const ChatPage = () => {
   const [titleDraft, setTitleDraft] = useState('')
   const [state, dispatch] = useReducer(chatViewReducer, undefined, createInitialChatViewState)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const currentSessionIdRef = useRef<string | null>(null)
   const hasTranscript = state.transcript.length > 0
 
   const visibleSessions = useMemo(() => selectVisibleSessions(sessions), [sessions])
+
+  useEffect(() => {
+    currentSessionIdRef.current = currentSessionId
+  }, [currentSessionId])
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: 'smooth' })
@@ -822,19 +827,27 @@ export const ChatPage = () => {
   const handleSend = async (): Promise<void> => {
     if (!currentSessionId || !draft.trim() || state.isRunning) return
 
+    const sessionId = currentSessionId
     const message = draft
     setDraft('')
     dispatch({ type: 'run.requested' })
 
     try {
-      await window.context.sendMessage(currentSessionId, message)
+      await window.context.sendMessage(sessionId, message)
+
+      // Re-sync from persisted events after the turn settles in main process.
+      // This prevents UI from getting stuck in "running" if any live IPC event was missed.
+      const snapshot = await window.context.openSession(sessionId)
+      if (currentSessionIdRef.current === sessionId) {
+        dispatch({ type: 'snapshot.loaded', snapshot })
+      }
     } catch (error) {
       dispatch({
         type: 'event.received',
         event: {
           type: 'session.error',
           eventId: `local_error_${Date.now()}`,
-          sessionId: currentSessionId,
+          sessionId,
           timestamp: Date.now(),
           message: error instanceof Error ? error.message : 'Unable to send the message.'
         }

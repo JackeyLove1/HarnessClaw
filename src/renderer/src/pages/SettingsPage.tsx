@@ -2,14 +2,19 @@ import { Eye, EyeOff, LoaderCircle, Save, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 type SaveState = 'idle' | 'saved' | 'error'
+type TestState = 'idle' | 'success' | 'error'
 
 export const SettingsPage = () => {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState('claude-sonnet-4-20250514')
   const [showApiKey, setShowApiKey] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [testState, setTestState] = useState<TestState>('idle')
+  const [testMessage, setTestMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -25,6 +30,7 @@ export const SettingsPage = () => {
 
         setBaseUrl(settings.baseUrl ?? '')
         setApiKey(settings.apiKey ?? '')
+        setModel(settings.model ?? 'claude-sonnet-4-20250514')
       } catch (error) {
         if (!isMounted) return
         setErrorMessage(error instanceof Error ? error.message : '读取配置失败，请稍后再试。')
@@ -43,8 +49,18 @@ export const SettingsPage = () => {
   }, [])
 
   const canSave = useMemo(() => {
-    return Boolean(baseUrl.trim()) && Boolean(apiKey.trim()) && !isSaving && !isLoading
-  }, [apiKey, baseUrl, isLoading, isSaving])
+    return Boolean(baseUrl.trim()) && Boolean(apiKey.trim()) && Boolean(model.trim()) && !isSaving && !isLoading
+  }, [apiKey, baseUrl, model, isLoading, isSaving])
+
+  const canTest = useMemo(() => {
+    return (
+      Boolean(baseUrl.trim()) &&
+      Boolean(apiKey.trim()) &&
+      Boolean(model.trim()) &&
+      !isTesting &&
+      !isLoading
+    )
+  }, [apiKey, baseUrl, model, isLoading, isTesting])
 
   const handleSave = async () => {
     if (!canSave) return
@@ -56,7 +72,8 @@ export const SettingsPage = () => {
     try {
       await window.context.saveAnthropicSettings({
         baseUrl: baseUrl.trim(),
-        apiKey: apiKey.trim()
+        apiKey: apiKey.trim(),
+        model: model.trim()
       })
       setSaveState('saved')
     } catch (error) {
@@ -64,6 +81,34 @@ export const SettingsPage = () => {
       setErrorMessage(error instanceof Error ? error.message : '保存失败，请检查配置后重试。')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    if (!canTest) return
+
+    setIsTesting(true)
+    setTestState('idle')
+    setTestMessage('')
+    setErrorMessage('')
+
+    try {
+      const result = await window.context.testAnthropicConnection({
+        baseUrl: baseUrl.trim(),
+        apiKey: apiKey.trim(),
+        model: model.trim()
+      })
+      setTestState('success')
+      setTestMessage(
+        `连接成功：${result.provider}/${result.model} · ${result.latencyMs}ms${
+          result.baseUrl ? ` · ${result.baseUrl}` : ''
+        }`
+      )
+    } catch (error) {
+      setTestState('error')
+      setTestMessage(error instanceof Error ? error.message : '连接测试失败，请检查 Base URL 与 API Key。')
+    } finally {
+      setIsTesting(false)
     }
   }
 
@@ -84,7 +129,7 @@ export const SettingsPage = () => {
           <div className="rounded-3xl border border-[var(--border-soft)] bg-white px-8 py-7 shadow-[0_14px_38px_rgba(15,15,20,0.05)]">
             <h1 className="text-[28px] font-semibold text-[var(--ink-main)]">通用设置</h1>
             <p className="mt-2 text-[14px] text-[var(--ink-faint)]">
-              配置 Anthropic 兼容接口。保存后会同步写入本地 `~/.deepclaw/.env` 并立即生效。
+              配置 Anthropic 兼容接口与模型名。保存后会同步写入本地 `~/.deepclaw/.env` 并立即生效。
             </p>
 
             <div className="mt-8 space-y-5">
@@ -98,7 +143,11 @@ export const SettingsPage = () => {
                 <input
                   id="anthropic-base-url"
                   value={baseUrl}
-                  onChange={(event) => setBaseUrl(event.target.value)}
+                  onChange={(event) => {
+                    setBaseUrl(event.target.value)
+                    setTestState('idle')
+                    setTestMessage('')
+                  }}
                   placeholder="例如: https://api.anthropic.com"
                   className="h-11 w-full rounded-xl border border-[var(--border-soft)] bg-[#fbfbfe] px-3 text-[14px] text-[var(--ink-main)] outline-none transition-all focus:border-[#b9b9ca] focus:bg-white"
                 />
@@ -116,7 +165,11 @@ export const SettingsPage = () => {
                     id="anthropic-api-key"
                     type={showApiKey ? 'text' : 'password'}
                     value={apiKey}
-                    onChange={(event) => setApiKey(event.target.value)}
+                    onChange={(event) => {
+                      setApiKey(event.target.value)
+                      setTestState('idle')
+                      setTestMessage('')
+                    }}
                     placeholder="输入 Anthropic API Key"
                     className="h-full min-w-0 flex-1 rounded-l-xl bg-transparent px-3 text-[14px] text-[var(--ink-main)] outline-none"
                   />
@@ -129,6 +182,26 @@ export const SettingsPage = () => {
                     {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="anthropic-model-name"
+                  className="mb-2 block text-[15px] font-semibold text-[var(--ink-main)]"
+                >
+                  Model Name
+                </label>
+                <input
+                  id="anthropic-model-name"
+                  value={model}
+                  onChange={(event) => {
+                    setModel(event.target.value)
+                    setTestState('idle')
+                    setTestMessage('')
+                  }}
+                  placeholder="例如: claude-sonnet-4-20250514"
+                  className="h-11 w-full rounded-xl border border-[var(--border-soft)] bg-[#fbfbfe] px-3 text-[14px] text-[var(--ink-main)] outline-none transition-all focus:border-[#b9b9ca] focus:bg-white"
+                />
               </div>
             </div>
 
@@ -144,7 +217,28 @@ export const SettingsPage = () => {
               </div>
             )}
 
-            <div className="mt-7 flex justify-end">
+            {testState !== 'idle' && testMessage && (
+              <div
+                className={`mt-5 rounded-xl border px-3 py-2 text-[13px] ${
+                  testState === 'success'
+                    ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]'
+                    : 'border-[#fecaca] bg-[#fff1f2] text-[#b91c1c]'
+                }`}
+              >
+                {testMessage}
+              </div>
+            )}
+
+            <div className="mt-7 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={!canTest}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--border-soft)] bg-white px-4 text-[14px] font-medium text-[var(--ink-main)] transition-all hover:bg-[#f6f6fb] disabled:cursor-not-allowed disabled:bg-[#f4f4f7] disabled:text-[#9ca0ad]"
+              >
+                {isTesting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                <span>{isTesting ? '测试中...' : '测试连接'}</span>
+              </button>
               <button
                 type="button"
                 onClick={handleSave}
