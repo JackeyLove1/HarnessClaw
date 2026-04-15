@@ -789,12 +789,12 @@ export const ChatPage = () => {
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--content-bg)]">
         <header className="flex shrink-0 items-center justify-between gap-4 px-6 py-4">
-          <div className="hidden items-center gap-2 text-[15px] font-semibold text-[#4f93ff] md:flex">
+          {/* <div className="hidden items-center gap-2 text-[15px] font-semibold text-[#4f93ff] md:flex">
             <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#f5f5f7]">
               <SparkIcon />
             </span>
             DeepClaw
-          </div>
+          </div> */}
         </header>
 
         <div ref={transcriptRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
