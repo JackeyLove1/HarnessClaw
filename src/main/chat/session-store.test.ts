@@ -24,10 +24,10 @@ describe('ChatSessionStore', () => {
     cleanupPaths.push(rootDir)
     const store = new ChatSessionStore({ rootDir })
 
-    const meta = await store.createSession('session-under-test')
+    const meta = await store.createSession('session-under-test-0000-0000-000000000000')
     const snapshot = await store.openSession(meta.id)
 
-    expect(snapshot.meta.id).toBe('session-under-test')
+    expect(snapshot.meta.id).toBe('session-under-test-0000-0000-000000000000')
     expect(snapshot.meta.title).toBe(DEFAULT_SESSION_TITLE)
     expect(snapshot.events).toHaveLength(1)
     expect(snapshot.events[0]?.type).toBe('session.created')

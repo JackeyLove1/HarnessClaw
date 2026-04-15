@@ -1,36 +1,37 @@
-import type { SessionMeta } from '@shared/models'
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import type { SessionMeta } from '@shared/models';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  chatViewReducer,
-  createInitialChatViewState,
-  selectVisibleSessions,
-  type AssistantTranscriptEntry,
-  type SystemTranscriptEntry,
-  type ToolGroupView,
-  type TranscriptEntry,
-  type UserTranscriptEntry
-} from '../chat/reducer'
+    chatViewReducer,
+    createInitialChatViewState,
+    selectVisibleSessions,
+    type AssistantTranscriptEntry,
+    type SystemTranscriptEntry,
+    type ToolGroupView,
+    type TranscriptEntry,
+    type UserTranscriptEntry
+} from '../chat/reducer';
 
 const CAPABILITY_ITEMS = [
   {
-    icon: 'brief',
+    icon: '💼',
     title: '我能做什么?',
-    description: '追踪 GDP、利率、CPI 等关键宏观经济数据，也能继续承接你的日常研究与分析任务。'
+    description: '追踪 GDP、利率、CPI 等关键宏观经济数据和央行政策。'
   },
   {
-    icon: 'spark',
+    icon: '🧑‍🏫',
     title: '我是怎么做?',
-    description: '支持长对话、多步推理、工具调用与结果整合，适合整理材料、生成方案和跟进执行。'
+    description: '支持 GDP/CPI/PMI/社融等、利率/准备金率变化影响查询，美联储/ECB 政策对 A 股影响。'
   }
 ]
 
 const SCENARIO_ITEMS = [
   { icon: '📊', text: '想了解当前经济处于什么周期阶段' },
-  { icon: '💹', text: '想知道利率变化会如何影响资产配置' },
-  { icon: '📋', text: '想把一组公开数据整理成结构化结论' }
+  { icon: '✅', text: '想知道利率变动对股市有什么影响' },
+  { icon: '🌍', text: '想跟踪全球主要经济体的数据对比' }
 ]
 
 const QUICK_PROMPTS = ['最新的 GDP 增速和 CPI 数据是多少?', '目前加息周期到哪个阶段了?']
+const EMPTY_STATE_BUBBLE = '经济数据查询能帮我做什么呢?'
 const INPUT_CHIPS = ['默认大模型', '技能', '找灵感']
 
 const formatClockTime = (timestamp: number): string =>
@@ -97,13 +98,6 @@ const BoltIcon = () => (
   </svg>
 )
 
-const BriefIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-    <path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7" />
-    <path d="M4 9.5A1.5 1.5 0 0 1 5.5 8h13A1.5 1.5 0 0 1 20 9.5v8A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-8Z" />
-    <path d="M4 12h16" />
-  </svg>
-)
 
 const WrenchIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -222,10 +216,9 @@ const TranscriptItem = ({ entry }: { entry: TranscriptEntry }) => {
   if (entry.kind === 'user') {
     const message = entry as UserTranscriptEntry
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[62%] rounded-3xl bg-[#1a1a1a] px-4 py-3.5 text-[14px] leading-7 text-white shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+      <div className="flex justify-end pt-1">
+        <div className="max-w-[66%] rounded-2xl border border-[#f8e7e0] bg-[#fff6f2] px-5 py-3 text-[16px] leading-[1.4] tracking-tight text-[#3a3a3f] shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <p className="whitespace-pre-wrap">{message.text}</p>
-          <time className="mt-2 block text-[11px] text-white/50">{formatClockTime(message.createdAt)}</time>
         </div>
       </div>
     )
@@ -234,22 +227,22 @@ const TranscriptItem = ({ entry }: { entry: TranscriptEntry }) => {
   if (entry.kind === 'assistant') {
     const message = entry as AssistantTranscriptEntry
     return (
-      <div className="max-w-[78%]">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f7] text-[var(--ink-subtle)]">
-            <BoltIcon />
+      <div className="max-w-[88%] pl-1">
+        <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-[#6c6d74]">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#f4f4f7] text-[#8d8f98]">
+            <SparkIcon />
           </span>
-          <span className="text-[12px] font-semibold text-[var(--ink-main)]">龙虾管家</span>
+          经济数据助手
           {message.isStreaming ? <span className="h-2 w-2 animate-pulse-dot rounded-full bg-emerald-500" /> : null}
         </div>
-        <div className="rounded-3xl border border-[var(--border-soft)] bg-white px-5 py-4 text-[14px] leading-7 text-[var(--ink-main)] shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+        <div className="rounded-2xl bg-transparent px-1 py-1 text-[24px] font-semibold leading-[1.48] tracking-tight text-[var(--ink-main)]">
           <p className="whitespace-pre-wrap">{message.text || '处理中…'}</p>
           {message.toolGroup ? (
-            <div className="mt-4">
+            <div className="mt-5 max-w-[780px]">
               <ToolGroupPanel toolGroup={message.toolGroup} />
             </div>
           ) : null}
-          <time className="mt-3 block text-[11px] text-[var(--ink-faint)]">
+          <time className="mt-3 block text-[11px] font-medium text-[var(--ink-faint)]">
             {message.isStreaming ? '实时生成中' : formatClockTime(message.completedAt ?? message.createdAt)}
           </time>
         </div>
@@ -270,47 +263,50 @@ const TranscriptItem = ({ entry }: { entry: TranscriptEntry }) => {
 }
 
 const EmptyState = () => (
-  <div className="mx-auto flex h-full w-full max-w-[680px] flex-col px-6 pt-16">
-    <div className="mb-12 text-center">
-      <h1 className="text-[28px] font-semibold tracking-tight text-[var(--ink-main)]">有什么可以帮你的?</h1>
-      <p className="mt-2 text-[15px] text-[var(--ink-faint)]">描述你的任务,我会帮你完成</p>
+  <div className="mx-auto flex h-full w-full max-w-[980px] flex-col px-8 pb-10 pt-8">
+    <div className="flex justify-end">
+      <div className="max-w-[360px] rounded-2xl border border-[#f0d7d0] bg-[#fff8f5] px-5 py-3 text-[20px] font-semibold leading-tight tracking-tight text-[#303030] shadow-[0_2px_6px_rgba(0,0,0,0.02)]">
+        {EMPTY_STATE_BUBBLE}
+      </div>
     </div>
 
-    <div className="mb-10 grid grid-cols-2 gap-4">
+    <div className="mt-20 max-w-[760px]">
       {CAPABILITY_ITEMS.map((item) => (
-        <div key={item.title} className="rounded-2xl border border-[var(--border-soft)] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#f5f5f7]">
-            {item.icon === 'brief' ? <BriefIcon /> : <SparkIcon />}
-          </div>
-          <h3 className="text-[15px] font-semibold text-[var(--ink-main)]">{item.title}</h3>
-          <p className="mt-1.5 text-[13px] leading-5 text-[var(--ink-soft)]">{item.description}</p>
+        <div key={item.title} className="mb-6">
+          <h3 className="text-[30px] font-semibold tracking-tight text-[var(--ink-main)]">
+            <span className="mr-2.5 align-middle text-[26px]">{item.icon}</span>
+            {item.title}
+          </h3>
+          <p className="mt-2 text-[24px] leading-[1.45] tracking-tight text-[var(--ink-main)]">{item.description}</p>
         </div>
       ))}
     </div>
 
-    <div className="mb-10">
-      <h3 className="mb-4 text-[14px] font-medium text-[var(--ink-faint)]">适用场景</h3>
-      <div className="space-y-2">
+    <div className="mt-3 max-w-[760px]">
+      <h3 className="text-[30px] font-semibold tracking-tight text-[var(--ink-main)]">适用场景：</h3>
+      <div className="mt-3 space-y-2.5">
         {SCENARIO_ITEMS.map((item) => (
-          <div key={item.text} className="flex items-center gap-3 text-[14px] text-[var(--ink-soft)]">
-            <span>{item.icon}</span>
+          <div key={item.text} className="flex items-center gap-3 text-[24px] font-semibold leading-[1.45] tracking-tight text-[var(--ink-main)]">
+            <span className="text-[22px]">{item.icon}</span>
             <span>{item.text}</span>
           </div>
         ))}
       </div>
     </div>
 
-    <div>
-      <h3 className="mb-4 text-[14px] font-medium text-[var(--ink-faint)]">试试这样问我</h3>
-      <div className="flex flex-col gap-2">
+    <div className="mt-10 border-t border-[var(--border-soft)] pt-8">
+      <h3 className="mb-4 text-[28px] font-semibold tracking-tight text-[var(--ink-main)]">可以试试这么问我:</h3>
+      <div className="max-w-[760px] space-y-3">
         {QUICK_PROMPTS.map((prompt) => (
           <button
             key={prompt}
             type="button"
-            className="flex w-full items-center justify-between rounded-full border border-[var(--border-soft)] bg-white px-5 py-3.5 text-left text-[14px] text-[var(--ink-soft)] shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition hover:border-[var(--border-medium)] hover:text-[var(--ink-main)]"
+            className="flex w-full items-center justify-between rounded-3xl border border-[#f0f0f3] bg-[#fbfbfd] px-6 py-3.5 text-left text-[21px] font-medium tracking-tight text-[#5b5b64] shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition hover:border-[#dedee6] hover:text-[var(--ink-main)]"
           >
             <span>{prompt}</span>
-            <ArrowIcon />
+            <span className="text-[#b6b8c2]">
+              <ArrowIcon />
+            </span>
           </button>
         ))}
       </div>
