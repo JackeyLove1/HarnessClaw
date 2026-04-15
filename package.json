@@ -25,6 +25,8 @@
     "@mdxeditor/editor": "^1.14.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "better-sqlite3": "^12.9.0",
+    "bindings": "^1.5.0",
+    "file-uri-to-path": "^2.0.0",
     "fs-extra": "^11.2.0",
     "install": "^0.13.0",
     "jotai": "^2.6.1",

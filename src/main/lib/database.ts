@@ -1,10 +1,32 @@
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'path'
 import { ensureChatSchema } from '../chat/sqlite-schema'
 
 let db: Database.Database | null = null
+type BetterSqlite3Ctor = new (filename: string) => Database.Database
+let databaseCtor: BetterSqlite3Ctor | null = null
+
+const loadDatabaseCtor = (): BetterSqlite3Ctor => {
+  if (databaseCtor) {
+    return databaseCtor
+  }
+
+  const require = createRequire(import.meta.url)
+  const mod = require('better-sqlite3') as
+    | BetterSqlite3Ctor
+    | { default?: BetterSqlite3Ctor }
+  const ctor = typeof mod === 'function' ? mod : mod.default
+
+  if (!ctor) {
+    throw new Error('Failed to load better-sqlite3 module.')
+  }
+
+  databaseCtor = ctor
+  return ctor
+}
 
 export interface NoteRecord {
   id: number
@@ -18,14 +40,16 @@ export const initDatabase = (): Database.Database => {
   const dbDirectory = path.join(os.homedir(), '.deepclaw')
   mkdirSync(dbDirectory, { recursive: true })
   const dbPath = path.join(dbDirectory, 'deepclaw.db')
-  db = new Database(dbPath)
+  const DatabaseCtor = loadDatabaseCtor()
+  db = new DatabaseCtor(dbPath)
+  const initializedDb = db
 
   // Enable WAL mode for better performance
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  initializedDb.pragma('journal_mode = WAL')
+  initializedDb.pragma('foreign_keys = ON')
 
   // Create notes table
-  db.exec(`
+  initializedDb.exec(`
     CREATE TABLE IF NOT EXISTS notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL UNIQUE,
@@ -35,15 +59,15 @@ export const initDatabase = (): Database.Database => {
   `)
 
   // Create index for faster lookups
-  db.exec(`
+  initializedDb.exec(`
     CREATE INDEX IF NOT EXISTS idx_notes_title ON notes(title);
     CREATE INDEX IF NOT EXISTS idx_notes_lastEditTime ON notes(lastEditTime DESC);
   `)
 
-  ensureChatSchema(db)
+  ensureChatSchema(initializedDb)
 
   console.info(`[Database] Initialized at ${dbPath}`)
-  return db
+  return initializedDb
 }
 
 export const getDatabase = (): Database.Database => {

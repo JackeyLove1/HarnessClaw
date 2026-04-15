@@ -60,6 +60,26 @@ const createStartupErrorWindow = (title: string, detail: string): void => {
   void errorWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
 }
 
+const showStartupError = (title: string, detail: string): void => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const html = `
+    <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#f8f7f4;color:#171717;font-family:'MyriadPro-Regular','MyriadPro-Light','汉仪旗黑-55S','汉仪旗黑-40S','Microsoft YaHei','Noto Sans SC',sans-serif;">
+      <section style="max-width:980px;width:100%;border:1px dashed #d4d4d4;border-radius:24px;padding:24px;background:white;box-shadow:0 20px 60px rgba(0,0,0,0.06);">
+        <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#737373;">Main Process Startup Error</div>
+        <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2;">${title}</h1>
+        <pre style="margin-top:16px;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:#404040;">${detail}</pre>
+      </section>
+    </main>
+    `
+    void mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    mainWindow.show()
+    mainWindow.focus()
+    return
+  }
+
+  createStartupErrorWindow(title, detail)
+}
+
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
   mainWindow = new BrowserWindow({
@@ -243,22 +263,23 @@ function registerSettingsIpc(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.deepclaw.notemark')
 
-  try {
-    app.on('browser-window-created', (_, window) => {
-      optimizer.watchWindowShortcuts(window)
-    })
+  app.on('browser-window-created', (_, window) => {
+    optimizer.watchWindowShortcuts(window)
+  })
 
+  registerWindowControls()
+  createWindow()
+
+  try {
     initDatabase()
     void hydrateAnthropicSettings().catch((error: unknown) => {
       console.error('Failed to hydrate Anthropic settings from ~/.deepclaw/.env', error)
     })
     chatSupervisor = new ChatSupervisor()
 
-    registerWindowControls()
     registerNoteIpc()
     registerChatIpc()
     registerSettingsIpc()
-    createWindow()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -268,7 +289,7 @@ app.whenReady().then(() => {
   } catch (error) {
     const detail = toErrorText(error)
     console.error('[startup] initialization failed', detail)
-    createStartupErrorWindow('Initialization failed before UI booted.', detail)
+    showStartupError('Initialization failed before UI booted.', detail)
   }
 })
 
@@ -276,7 +297,7 @@ process.on('uncaughtException', (error) => {
   const detail = toErrorText(error)
   console.error('[process] uncaughtException', detail)
   if (app.isReady()) {
-    createStartupErrorWindow('Uncaught exception in main process.', detail)
+    showStartupError('Uncaught exception in main process.', detail)
   }
 })
 
@@ -284,7 +305,7 @@ process.on('unhandledRejection', (reason) => {
   const detail = toErrorText(reason)
   console.error('[process] unhandledRejection', detail)
   if (app.isReady()) {
-    createStartupErrorWindow('Unhandled promise rejection in main process.', detail)
+    showStartupError('Unhandled promise rejection in main process.', detail)
   }
 })
 
