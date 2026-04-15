@@ -29,6 +29,34 @@ const formatSessionTime = (timestamp: number): string => {
   return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(timestamp)
 }
 
+const mapSendErrorMessage = (error: unknown): string => {
+  const fallback = '发送失败，请稍后重试。'
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const message = raw.trim()
+  if (!message) {
+    return fallback
+  }
+
+  if (message.includes('already responding')) {
+    return '当前会话正在回复中，请先点击“停止”后再发送新消息。'
+  }
+
+  if (
+    message.includes('not configured') ||
+    message.includes('missing ANTHROPIC_API_KEY') ||
+    message.includes('missing NOTEMARK_MODEL') ||
+    message.includes('only supports Anthropic provider')
+  ) {
+    return '模型配置不完整，请前往“设置”填写 Base URL、API Key、Model，并先执行“测试连接”。'
+  }
+
+  if (message.includes('Session not found')) {
+    return '当前会话不存在，请新建会话后重试。'
+  }
+
+  return message
+}
+
 const SearchIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -849,7 +877,7 @@ export const ChatPage = () => {
           eventId: `local_error_${Date.now()}`,
           sessionId,
           timestamp: Date.now(),
-          message: error instanceof Error ? error.message : 'Unable to send the message.'
+          message: mapSendErrorMessage(error)
         }
       })
     }

@@ -19,10 +19,9 @@
     "build:linux": "electron-vite build && electron-builder --linux --config"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.89.0",
     "@electron-toolkit/preload": "^2.0.0",
     "@electron-toolkit/utils": "^2.0.0",
-    "@mariozechner/pi-agent-core": "^0.67.1",
-    "@mariozechner/pi-ai": "^0.67.2",
     "@mdxeditor/editor": "^1.14.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "better-sqlite3": "^12.9.0",

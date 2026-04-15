@@ -7,6 +7,7 @@ import {
   clampSessionTitle,
   fallbackTitleFromUserText
 } from './session-store'
+import { validateRuntimeConfig } from './runtime/config'
 import { createChatRuntime } from './runtime'
 
 type ActiveRun = {
@@ -121,37 +122,45 @@ export class ChatSupervisor {
       return
     }
 
+    const validation = validateRuntimeConfig()
+    if (!validation.ok) {
+      await this.persistError(sessionId, validation.message)
+      return
+    }
+
     if (this.activeRuns.has(sessionId)) {
       throw new Error(
         'This chat is already responding. Cancel the current run before sending a new message.'
       )
     }
 
-    const snapshot = await this.store.openSession(sessionId)
-    const userEvent: ChatEvent = {
-      type: 'user.message',
-      eventId: createEventId('user.message'),
-      sessionId,
-      timestamp: Date.now(),
-      messageId: `user_${randomUUID()}`,
-      text: trimmed
-    }
-
-    await this.store.appendEvent(sessionId, userEvent)
-    await this.store.updateMeta(sessionId, {
-      updatedAt: userEvent.timestamp,
-      status: 'running',
-      messageCount: snapshot.meta.messageCount + 1
-    })
-    this.broadcast(userEvent)
-
-    const abortController = new AbortController()
-    this.activeRuns.set(sessionId, { abortController })
-
-    let assistantText = ''
-    let shouldGenerateTitle = false
+    let abortController: AbortController | null = null
 
     try {
+      const snapshot = await this.store.openSession(sessionId)
+      const userEvent: ChatEvent = {
+        type: 'user.message',
+        eventId: createEventId('user.message'),
+        sessionId,
+        timestamp: Date.now(),
+        messageId: `user_${randomUUID()}`,
+        text: trimmed
+      }
+
+      await this.store.appendEvent(sessionId, userEvent)
+      await this.store.updateMeta(sessionId, {
+        updatedAt: userEvent.timestamp,
+        status: 'running',
+        messageCount: snapshot.meta.messageCount + 1
+      })
+      this.broadcast(userEvent)
+
+      abortController = new AbortController()
+      this.activeRuns.set(sessionId, { abortController })
+
+      let assistantText = ''
+      let shouldGenerateTitle = false
+
       for await (const event of this.runtime.runTurn({
         sessionId,
         userText: trimmed,
@@ -182,13 +191,15 @@ export class ChatSupervisor {
         await this.generateAndPersistTitle(sessionId, assistantText)
       }
     } catch (error) {
-      if (abortController.signal.aborted) {
+      if (abortController?.signal.aborted) {
         await this.persistCancelled(sessionId)
       } else {
         await this.persistError(sessionId, toErrorMessage(error))
       }
     } finally {
-      this.activeRuns.delete(sessionId)
+      if (abortController) {
+        this.activeRuns.delete(sessionId)
+      }
     }
   }
 

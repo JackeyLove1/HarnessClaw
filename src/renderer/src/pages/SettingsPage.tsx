@@ -7,7 +7,7 @@ type TestState = 'idle' | 'success' | 'error'
 export const SettingsPage = () => {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('claude-sonnet-4-20250514')
+  const [model, setModel] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -30,7 +30,7 @@ export const SettingsPage = () => {
 
         setBaseUrl(settings.baseUrl ?? '')
         setApiKey(settings.apiKey ?? '')
-        setModel(settings.model ?? 'claude-sonnet-4-20250514')
+        setModel(settings.model ?? '')
       } catch (error) {
         if (!isMounted) return
         setErrorMessage(error instanceof Error ? error.message : '读取配置失败，请稍后再试。')
@@ -51,6 +51,10 @@ export const SettingsPage = () => {
   const canSave = useMemo(() => {
     return Boolean(baseUrl.trim()) && Boolean(apiKey.trim()) && Boolean(model.trim()) && !isSaving && !isLoading
   }, [apiKey, baseUrl, model, isLoading, isSaving])
+
+  const isConfigIncomplete = useMemo(() => {
+    return !baseUrl.trim() || !apiKey.trim() || !model.trim()
+  }, [apiKey, baseUrl, model])
 
   const canTest = useMemo(() => {
     return (
@@ -131,6 +135,9 @@ export const SettingsPage = () => {
             <p className="mt-2 text-[14px] text-[var(--ink-faint)]">
               配置 Anthropic 兼容接口与模型名。保存后会同步写入本地 `~/.deepclaw/.env` 并立即生效。
             </p>
+            <p className="mt-2 text-[13px] text-[var(--ink-faint)]">
+              聊天请求由 Electron 主进程发出，Renderer 的 Network 面板通常看不到模型请求；请以“测试连接”和聊天回包为准。
+            </p>
 
             <div className="mt-8 space-y-5">
               <div>
@@ -199,11 +206,17 @@ export const SettingsPage = () => {
                     setTestState('idle')
                     setTestMessage('')
                   }}
-                  placeholder="例如: claude-sonnet-4-20250514"
+                  placeholder="例如: 使用你账号可用的 Claude 模型名"
                   className="h-11 w-full rounded-xl border border-[var(--border-soft)] bg-[#fbfbfe] px-3 text-[14px] text-[var(--ink-main)] outline-none transition-all focus:border-[#b9b9ca] focus:bg-white"
                 />
               </div>
             </div>
+
+            {isConfigIncomplete && !isLoading ? (
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+                当前配置不完整。请填写 Base URL、API Key、Model 后先测试连接，再到聊天页发送消息。
+              </div>
+            ) : null}
 
             {errorMessage && (
               <div className="mt-5 rounded-xl border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-[13px] text-[#b91c1c]">

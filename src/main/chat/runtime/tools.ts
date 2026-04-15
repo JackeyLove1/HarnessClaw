@@ -1,25 +1,33 @@
 import os from 'node:os'
 import process from 'node:process'
 import { clampText } from './text-utils'
-import type { PiTypeRuntime } from './types'
 
-type ReadOnlyTool = {
+export type ReadOnlyTool = {
   name: string
   label: string
   description: string
-  parameters: unknown
+  inputSchema: {
+    type: 'object'
+    properties: Record<string, unknown>
+    required?: string[]
+    additionalProperties?: boolean
+  }
   execute: (toolCallId: string, params: Record<string, unknown>) => Promise<{
     content: Array<{ type: 'text'; text: string }>
     details: { summary: string }
   }>
 }
 
-export const createReadOnlyTools = (Type: PiTypeRuntime): ReadOnlyTool[] => [
+export const createReadOnlyTools = (): ReadOnlyTool[] => [
   {
     name: 'get_time',
     label: 'Current Time',
     description: 'Return the current local time, timezone, and ISO timestamp.',
-    parameters: Type.Object({}),
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false
+    },
     execute: async () => {
       const now = new Date()
       const text = [
@@ -38,7 +46,11 @@ export const createReadOnlyTools = (Type: PiTypeRuntime): ReadOnlyTool[] => [
     name: 'get_system_info',
     label: 'System Info',
     description: 'Return read-only runtime information about the current desktop environment.',
-    parameters: Type.Object({}),
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false
+    },
     execute: async () => {
       const text = [
         `Platform: ${process.platform}`,
@@ -58,9 +70,17 @@ export const createReadOnlyTools = (Type: PiTypeRuntime): ReadOnlyTool[] => [
     name: 'echo',
     label: 'Echo',
     description: 'Echo text back for debugging tool rendering and event flow.',
-    parameters: Type.Object({
-      text: Type.String({ description: 'Text to echo back.' })
-    }),
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'Text to echo back.'
+        }
+      },
+      required: ['text'],
+      additionalProperties: false
+    },
     execute: async (_toolCallId, params) => {
       const text = clampText(params.text, 400)
 

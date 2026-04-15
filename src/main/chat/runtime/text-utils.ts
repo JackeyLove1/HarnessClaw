@@ -1,4 +1,5 @@
 import type { ChatEvent } from '@shared/models'
+import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 
 export const clampText = (value: unknown, maxLength = 280): string => {
   const text = String(value ?? '')
@@ -53,28 +54,15 @@ export const fallbackTitle = (userText: string, createdAt = Date.now()): string 
   return `Chat ${new Date(createdAt).toLocaleString()}`
 }
 
-export const toAgentMessages = (
-  history: ChatEvent[]
-): Array<{
-  role: 'user' | 'assistant'
-  timestamp: number
-  content: Array<{ type: 'text'; text: string }>
-}> => {
+export const toAnthropicMessages = (history: ChatEvent[]): MessageParam[] => {
   if (!Array.isArray(history)) return []
 
-  type AgentMessage = {
-    role: 'user' | 'assistant'
-    timestamp: number
-    content: Array<{ type: 'text'; text: string }>
-  }
-
-  return history.flatMap((event): AgentMessage[] => {
+  return history.flatMap((event): MessageParam[] => {
     if (event.type === 'user.message') {
       return [
         {
           role: 'user',
-          timestamp: event.timestamp,
-          content: [{ type: 'text', text: event.text }]
+          content: event.text
         }
       ]
     }
@@ -83,8 +71,7 @@ export const toAgentMessages = (
       return [
         {
           role: 'assistant',
-          timestamp: event.timestamp,
-          content: [{ type: 'text', text: event.text }]
+          content: event.text
         }
       ]
     }

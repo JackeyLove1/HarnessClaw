@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { getApiKey, resolveRuntimeConfig } from './config'
+import { getAnthropicApiKey, resolveRuntimeConfig } from './config'
 
 const ORIGINAL_ENV = { ...process.env }
 
@@ -15,54 +15,39 @@ afterEach(() => {
 })
 
 describe('runtime config', () => {
-  it('infers openai provider/model from API key', () => {
-    process.env.OPENAI_API_KEY = 'openai-test-key'
+  it('throws when anthropic model is missing in env', () => {
+    process.env.ANTHROPIC_API_KEY = 'anthropic-test-key'
     delete process.env.NOTEMARK_MODEL_PROVIDER
     delete process.env.NOTEMARK_MODEL
 
-    expect(resolveRuntimeConfig()).toEqual({
-      provider: 'openai',
-      model: 'gpt-4.1-mini',
-      baseUrl: undefined
-    })
+    expect(() => resolveRuntimeConfig()).toThrow(/missing NOTEMARK_MODEL/)
   })
 
-  it('throws when provider cannot be resolved', () => {
+  it('throws when anthropic provider is missing api key', () => {
     delete process.env.NOTEMARK_MODEL_PROVIDER
-    delete process.env.OPENAI_API_KEY
-    delete process.env.ANTHROPIC_API_KEY
-    delete process.env.NOTEMARK_MODEL
-
-    expect(() => resolveRuntimeConfig()).toThrow(/Chat runtime is not configured/)
-  })
-
-  it('throws when configured openai provider is missing api key', () => {
-    process.env.NOTEMARK_MODEL_PROVIDER = 'openai'
-    process.env.NOTEMARK_MODEL = 'gpt-4.1-mini'
-    delete process.env.OPENAI_API_KEY
-
-    expect(() => resolveRuntimeConfig()).toThrow(/missing OPENAI_API_KEY/)
-  })
-
-  it('throws when configured anthropic provider is missing api key', () => {
-    process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
-    process.env.NOTEMARK_MODEL = 'claude-sonnet-4-20250514'
     delete process.env.ANTHROPIC_API_KEY
 
     expect(() => resolveRuntimeConfig()).toThrow(/missing ANTHROPIC_API_KEY/)
   })
 
-  it('returns explicit provider/model and key lookup', () => {
+  it('throws when provider is explicitly set to non-anthropic', () => {
+    process.env.NOTEMARK_MODEL_PROVIDER = 'openai'
+    process.env.ANTHROPIC_API_KEY = 'anthropic-key'
+
+    expect(() => resolveRuntimeConfig()).toThrow(/only supports Anthropic provider/)
+  })
+
+  it('returns explicit anthropic provider/model and key lookup', () => {
     process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
-    process.env.NOTEMARK_MODEL = 'claude-sonnet-4-20250514'
+    process.env.NOTEMARK_MODEL = 'claude-sonnet-4-5'
     process.env.ANTHROPIC_API_KEY = 'anthropic-key'
     process.env.ANTHROPIC_BASE_URL = 'https://example-proxy.test/v1'
 
     expect(resolveRuntimeConfig()).toEqual({
       provider: 'anthropic',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       baseUrl: 'https://example-proxy.test/v1'
     })
-    expect(getApiKey('anthropic')).toBe('anthropic-key')
+    expect(getAnthropicApiKey()).toBe('anthropic-key')
   })
 })

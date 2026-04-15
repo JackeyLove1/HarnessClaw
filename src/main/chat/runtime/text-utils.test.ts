@@ -6,7 +6,7 @@ import {
   fallbackTitle,
   sanitizeTitle,
   summarizeValue,
-  toAgentMessages
+  toAnthropicMessages
 } from './text-utils'
 
 describe('runtime text utils', () => {
@@ -67,16 +67,14 @@ describe('runtime text utils', () => {
     ]
 
     expect(fallbackTitle('')).toMatch(/^Chat /)
-    expect(toAgentMessages(history)).toEqual([
+    expect(toAnthropicMessages(history)).toEqual([
       {
         role: 'user',
-        timestamp: 2,
-        content: [{ type: 'text', text: 'Hello' }]
+        content: 'Hello'
       },
       {
         role: 'assistant',
-        timestamp: 3,
-        content: [{ type: 'text', text: 'Hi there' }]
+        content: 'Hi there'
       }
     ])
   })

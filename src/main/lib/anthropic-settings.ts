@@ -96,7 +96,7 @@ export const getAnthropicSettings = async (): Promise<AnthropicSettings> => {
   return {
     baseUrl: envEntries.get(ANTHROPIC_BASE_URL_KEY) ?? '',
     apiKey: envEntries.get(ANTHROPIC_API_KEY) ?? '',
-    model: envEntries.get(MODEL_KEY) ?? 'claude-sonnet-4-20250514'
+    model: envEntries.get(MODEL_KEY) ?? ''
   }
 }
 

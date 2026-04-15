@@ -1,55 +1,45 @@
 import process from 'node:process'
 import type { RuntimeConfig } from './types'
 
-const getBaseUrl = (provider: string): string | undefined => {
-  if (provider === 'openai') return process.env.OPENAI_BASE_URL?.trim() || undefined
-  if (provider === 'anthropic') return process.env.ANTHROPIC_BASE_URL?.trim() || undefined
-  return undefined
-}
+type RuntimeConfigValidation =
+  | { ok: true; config: RuntimeConfig }
+  | { ok: false; message: string }
 
-export const resolveRuntimeConfig = (): RuntimeConfig => {
-  const provider =
-    process.env.NOTEMARK_MODEL_PROVIDER ??
-    (process.env.OPENAI_API_KEY
-      ? 'openai'
-      : process.env.ANTHROPIC_API_KEY
-        ? 'anthropic'
-        : undefined)
-  const model =
-    process.env.NOTEMARK_MODEL ??
-    (provider === 'openai'
-      ? 'gpt-4.1-mini'
-      : provider === 'anthropic'
-        ? 'claude-sonnet-4-20250514'
-        : '')
+const getBaseUrl = (): string | undefined => process.env.ANTHROPIC_BASE_URL?.trim() || undefined
 
-  if (!provider) {
-    throw new Error(
-      'Chat runtime is not configured. Set NOTEMARK_MODEL_PROVIDER and NOTEMARK_MODEL, plus the matching provider API key.'
-    )
+export const validateRuntimeConfig = (): RuntimeConfigValidation => {
+  const provider = process.env.NOTEMARK_MODEL_PROVIDER?.trim() || 'anthropic'
+  const model = process.env.NOTEMARK_MODEL?.trim() || ''
+
+  if (provider !== 'anthropic') {
+    return {
+      ok: false,
+      message: 'Chat runtime only supports Anthropic provider. Save Anthropic settings and retry.'
+    }
   }
 
   if (!model) {
-    throw new Error('Chat runtime is missing NOTEMARK_MODEL.')
+    return { ok: false, message: 'Chat runtime is missing NOTEMARK_MODEL.' }
   }
 
-  if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
-    throw new Error('Chat runtime is missing OPENAI_API_KEY for the configured OpenAI model.')
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      ok: false,
+      message:
+        'Chat runtime is missing ANTHROPIC_API_KEY for the configured Anthropic model. Save your settings and test the connection.'
+    }
   }
 
-  if (provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
-    throw new Error('Chat runtime is missing ANTHROPIC_API_KEY for the configured Anthropic model.')
-  }
-
-  return {
-    provider,
-    model,
-    baseUrl: getBaseUrl(provider)
-  }
+  return { ok: true, config: { provider: 'anthropic', model, baseUrl: getBaseUrl() } }
 }
 
-export const getApiKey = (provider: string): string | undefined => {
-  if (provider === 'openai') return process.env.OPENAI_API_KEY
-  if (provider === 'anthropic') return process.env.ANTHROPIC_API_KEY
-  return undefined
+export const resolveRuntimeConfig = (): RuntimeConfig => {
+  const result = validateRuntimeConfig()
+  if (!result.ok) {
+    throw new Error(result.message)
+  }
+
+  return result.config
 }
+
+export const getAnthropicApiKey = (): string | undefined => process.env.ANTHROPIC_API_KEY
