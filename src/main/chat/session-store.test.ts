@@ -1,7 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ChatEvent, SessionMeta } from '@shared/models'
 import {
@@ -12,17 +9,23 @@ import {
   sortSessionsByUpdatedAt
 } from './session-store'
 
-const cleanupPaths: string[] = []
+const cleanupDatabases: Database.Database[] = []
 
 afterEach(async () => {
-  await Promise.all(cleanupPaths.splice(0).map((target) => rm(target, { recursive: true, force: true })))
+  for (const database of cleanupDatabases.splice(0)) {
+    database.close()
+  }
 })
 
 describe('ChatSessionStore', () => {
-  it('creates a session directory with meta.json and events.jsonl data', async () => {
-    const rootDir = path.join(tmpdir(), `notemark-chat-${randomUUID()}`)
-    cleanupPaths.push(rootDir)
-    const store = new ChatSessionStore({ rootDir })
+  const createStore = (): ChatSessionStore => {
+    const database = new Database(':memory:')
+    cleanupDatabases.push(database)
+    return new ChatSessionStore({ database })
+  }
+
+  it('creates a session and replays the persisted snapshot from sqlite', async () => {
+    const store = createStore()
 
     const meta = await store.createSession('session-under-test-0000-0000-000000000000')
     const snapshot = await store.openSession(meta.id)
@@ -33,10 +36,8 @@ describe('ChatSessionStore', () => {
     expect(snapshot.events[0]?.type).toBe('session.created')
   })
 
-  it('appends and replays transcript events from events.jsonl', async () => {
-    const rootDir = path.join(tmpdir(), `notemark-chat-${randomUUID()}`)
-    cleanupPaths.push(rootDir)
-    const store = new ChatSessionStore({ rootDir })
+  it('appends and replays transcript events from sqlite rows', async () => {
+    const store = createStore()
     const meta = await store.createSession()
 
     const userEvent: ChatEvent = {
@@ -52,6 +53,42 @@ describe('ChatSessionStore', () => {
     const snapshot = await store.openSession(meta.id)
 
     expect(snapshot.events.some((event) => event.type === 'user.message')).toBe(true)
+  })
+
+  it('searches sessions by message text with full-text index', async () => {
+    const store = createStore()
+    const economicSession = await store.createSession('session-economic')
+    const otherSession = await store.createSession('session-other')
+
+    await store.appendEvent(economicSession.id, {
+      type: 'user.message',
+      eventId: 'user-economic-1',
+      sessionId: economicSession.id,
+      timestamp: Date.now(),
+      messageId: 'economic-user',
+      text: '请给我最新的通胀和CPI数据'
+    })
+
+    await store.appendEvent(otherSession.id, {
+      type: 'user.message',
+      eventId: 'user-other-1',
+      sessionId: otherSession.id,
+      timestamp: Date.now(),
+      messageId: 'other-user',
+      text: '帮我起草一封邮件'
+    })
+
+    const results = await store.searchSessions('通胀')
+    expect(results.map((session) => session.id)).toEqual([economicSession.id])
+  })
+
+  it('returns all sessions when search query is empty', async () => {
+    const store = createStore()
+    await store.createSession('session-a')
+    await store.createSession('session-b')
+
+    const results = await store.searchSessions(' ')
+    expect(results).toHaveLength(2)
   })
 
   it('sorts sessions and keeps only the latest ten for the sidebar selector', () => {

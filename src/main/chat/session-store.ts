@@ -1,18 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import { appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import path from 'node:path'
+import type Database from 'better-sqlite3'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
+import { getDatabase } from '../lib/database'
+import { ensureChatSchema } from './sqlite-schema'
 
-export const CHAT_ROOT_DIRNAME = '.deepclaw'
-export const CHAT_SESSIONS_DIRNAME = 'sessions'
 export const DEFAULT_SESSION_TITLE = 'New chat'
 
 type SessionStoreOptions = {
-  rootDir?: string
+  database?: Database.Database
 }
-
-const serialize = (value: unknown): string => JSON.stringify(value, null, 2)
 
 const compactText = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
@@ -41,41 +37,58 @@ export const sortSessionsByUpdatedAt = (sessions: SessionMeta[]): SessionMeta[] 
 export const selectRecentSessions = (sessions: SessionMeta[], limit = 10): SessionMeta[] =>
   sortSessionsByUpdatedAt(sessions).slice(0, limit)
 
-const parseJsonLines = <T>(input: string): T[] =>
-  input
-    .split('\n')
-    .map((line) => line.trim())
+const parseSessionMeta = (row: {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messageCount: number
+  status: SessionMeta['status']
+}): SessionMeta => ({
+  id: row.id,
+  title: row.title,
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
+  messageCount: row.messageCount,
+  status: row.status
+})
+
+const extractSearchableText = (event: ChatEvent): string => {
+  if (event.type === 'user.message') {
+    return event.text
+  }
+
+  if (event.type === 'assistant.completed') {
+    return event.text
+  }
+
+  return ''
+}
+
+const sanitizeFtsQuery = (query: string): string => {
+  const terms = query
+    .trim()
+    .replace(/["']/g, ' ')
+    .split(/\s+/)
+    .map((term) => term.trim())
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as T)
+
+  if (terms.length === 0) {
+    return ''
+  }
+
+  return terms.map((term) => `"${term.replace(/"/g, '""')}"`).join(' AND ')
+}
 
 export class ChatSessionStore {
-  constructor(private readonly options: SessionStoreOptions = {}) {}
+  private readonly db: Database.Database
 
-  get rootDir(): string {
-    return this.options.rootDir ?? path.join(homedir(), CHAT_ROOT_DIRNAME)
+  constructor(options: SessionStoreOptions = {}) {
+    this.db = options.database ?? getDatabase()
+    ensureChatSchema(this.db)
   }
 
-  get sessionsDir(): string {
-    return path.join(this.rootDir, CHAT_SESSIONS_DIRNAME)
-  }
-
-  private getSessionPaths(sessionId: string): { dir: string; meta: string; events: string } {
-    const dir = path.join(this.sessionsDir, sessionId)
-
-    return {
-      dir,
-      meta: path.join(dir, 'meta.json'),
-      events: path.join(dir, 'events.jsonl')
-    }
-  }
-
-  private async ensureDirectories(): Promise<void> {
-    await mkdir(this.sessionsDir, { recursive: true })
-  }
-
-  async createSession(sessionId = randomUUID()): Promise<SessionMeta> {
-    await this.ensureDirectories()
-
+  async createSession(sessionId: string = randomUUID()): Promise<SessionMeta> {
     const now = Date.now()
     const meta: SessionMeta = {
       id: sessionId,
@@ -93,18 +106,63 @@ export class ChatSessionStore {
       meta
     }
 
-    const paths = this.getSessionPaths(sessionId)
-    await mkdir(paths.dir, { recursive: true })
-    await writeFile(paths.meta, serialize(meta), 'utf8')
-    await appendFile(paths.events, `${JSON.stringify(event)}\n`, 'utf8')
+    const transaction = this.db.transaction((nextMeta: SessionMeta, nextEvent: ChatEvent) => {
+      this.db
+        .prepare(
+          `
+          INSERT INTO chat_sessions (id, title, createdAt, updatedAt, messageCount, status)
+          VALUES (@id, @title, @createdAt, @updatedAt, @messageCount, @status)
+          `
+        )
+        .run(nextMeta)
+
+      this.db
+        .prepare(
+          `
+          INSERT INTO chat_events (sessionId, eventId, timestamp, type, searchableText, payload)
+          VALUES (@sessionId, @eventId, @timestamp, @type, @searchableText, @payload)
+          `
+        )
+        .run({
+          sessionId: nextEvent.sessionId,
+          eventId: nextEvent.eventId,
+          timestamp: nextEvent.timestamp,
+          type: nextEvent.type,
+          searchableText: extractSearchableText(nextEvent),
+          payload: JSON.stringify(nextEvent)
+        })
+    })
+
+    transaction(meta, event)
 
     return meta
   }
 
   async readMeta(sessionId: string): Promise<SessionMeta> {
-    const paths = this.getSessionPaths(sessionId)
-    const raw = await readFile(paths.meta, 'utf8')
-    return JSON.parse(raw) as SessionMeta
+    const row = this.db
+      .prepare(
+        `
+        SELECT id, title, createdAt, updatedAt, messageCount, status
+        FROM chat_sessions
+        WHERE id = ?
+        `
+      )
+      .get(sessionId) as
+      | {
+          id: string
+          title: string
+          createdAt: number
+          updatedAt: number
+          messageCount: number
+          status: SessionMeta['status']
+        }
+      | undefined
+
+    if (!row) {
+      throw new Error(`Session not found: ${sessionId}`)
+    }
+
+    return parseSessionMeta(row)
   }
 
   async updateMeta(
@@ -113,27 +171,49 @@ export class ChatSessionStore {
   ): Promise<SessionMeta> {
     const current = await this.readMeta(sessionId)
     const next = typeof update === 'function' ? update(current) : { ...current, ...update }
-    const paths = this.getSessionPaths(sessionId)
-    await writeFile(paths.meta, serialize(next), 'utf8')
+    this.db
+      .prepare(
+        `
+        UPDATE chat_sessions
+        SET title = @title, createdAt = @createdAt, updatedAt = @updatedAt, messageCount = @messageCount, status = @status
+        WHERE id = @id
+        `
+      )
+      .run(next)
     return next
   }
 
   async appendEvent(sessionId: string, event: ChatEvent): Promise<void> {
-    await this.ensureDirectories()
-    const paths = this.getSessionPaths(sessionId)
-    await mkdir(paths.dir, { recursive: true })
-    await appendFile(paths.events, `${JSON.stringify(event)}\n`, 'utf8')
+    this.db
+      .prepare(
+        `
+        INSERT INTO chat_events (sessionId, eventId, timestamp, type, searchableText, payload)
+        VALUES (@sessionId, @eventId, @timestamp, @type, @searchableText, @payload)
+        `
+      )
+      .run({
+        sessionId,
+        eventId: event.eventId,
+        timestamp: event.timestamp,
+        type: event.type,
+        searchableText: extractSearchableText(event),
+        payload: JSON.stringify(event)
+      })
   }
 
   async readEvents(sessionId: string): Promise<ChatEvent[]> {
-    const paths = this.getSessionPaths(sessionId)
+    const rows = this.db
+      .prepare(
+        `
+        SELECT payload
+        FROM chat_events
+        WHERE sessionId = ?
+        ORDER BY timestamp ASC, id ASC
+        `
+      )
+      .all(sessionId) as { payload: string }[]
 
-    try {
-      const raw = await readFile(paths.events, 'utf8')
-      return parseJsonLines<ChatEvent>(raw)
-    } catch {
-      return []
-    }
+    return rows.map((row) => JSON.parse(row.payload) as ChatEvent)
   }
 
   async openSession(sessionId: string): Promise<SessionSnapshot> {
@@ -142,21 +222,58 @@ export class ChatSessionStore {
   }
 
   async listSessions(): Promise<SessionMeta[]> {
-    await this.ensureDirectories()
-    const entries = await readdir(this.sessionsDir, { withFileTypes: true })
-    const metas = await Promise.all(
-      entries
-        .filter((entry) => entry.isDirectory())
-        .map(async (entry) => {
-          try {
-            return await this.readMeta(entry.name)
-          } catch {
-            return null
-          }
-        })
-    )
+    const rows = this.db
+      .prepare(
+        `
+        SELECT id, title, createdAt, updatedAt, messageCount, status
+        FROM chat_sessions
+        ORDER BY updatedAt DESC
+        `
+      )
+      .all() as Array<{
+      id: string
+      title: string
+      createdAt: number
+      updatedAt: number
+      messageCount: number
+      status: SessionMeta['status']
+    }>
 
-    return sortSessionsByUpdatedAt(metas.filter((value): value is SessionMeta => value != null))
+    return rows.map(parseSessionMeta)
+  }
+
+  async searchSessions(query: string): Promise<SessionMeta[]> {
+    const normalized = query.trim()
+    if (!normalized) {
+      return this.listSessions()
+    }
+
+    const matchQuery = sanitizeFtsQuery(normalized)
+    if (!matchQuery) {
+      return []
+    }
+
+    const rows = this.db
+      .prepare(
+        `
+        SELECT DISTINCT s.id, s.title, s.createdAt, s.updatedAt, s.messageCount, s.status
+        FROM chat_events_fts fts
+        INNER JOIN chat_events events ON events.id = fts.rowid
+        INNER JOIN chat_sessions s ON s.id = events.sessionId
+        WHERE chat_events_fts MATCH ?
+        ORDER BY s.updatedAt DESC
+        `
+      )
+      .all(matchQuery) as Array<{
+      id: string
+      title: string
+      createdAt: number
+      updatedAt: number
+      messageCount: number
+      status: SessionMeta['status']
+    }>
+
+    return rows.map(parseSessionMeta)
   }
 
   async updateSessionTitle(sessionId: string, title: string): Promise<SessionMeta> {
@@ -172,7 +289,11 @@ export class ChatSessionStore {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    const paths = this.getSessionPaths(sessionId)
-    await rm(paths.dir, { recursive: true, force: true })
+    const transaction = this.db.transaction((targetSessionId: string) => {
+      this.db.prepare('DELETE FROM chat_events WHERE sessionId = ?').run(targetSessionId)
+      this.db.prepare('DELETE FROM chat_sessions WHERE id = ?').run(targetSessionId)
+    })
+
+    transaction(sessionId)
   }
 }

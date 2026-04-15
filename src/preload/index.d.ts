@@ -8,6 +8,7 @@ import type {
   ListSessions,
   OpenSession,
   ReadNote,
+  SearchSessions,
   SendMessage,
   SubscribeChatEvents,
   UpdateSessionTitle,
@@ -28,6 +29,7 @@ declare global {
       createNote: CreateNote
       deleteNote: DeleteNote
       listSessions: ListSessions
+      searchSessions: SearchSessions
       createSession: CreateSession
       openSession: OpenSession
       updateSessionTitle: UpdateSessionTitle

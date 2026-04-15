@@ -65,6 +65,10 @@ export class ChatSupervisor {
     return this.store.listSessions()
   }
 
+  async searchSessions(query: string): Promise<SessionMeta[]> {
+    return this.store.searchSessions(query)
+  }
+
   async createSession(): Promise<SessionMeta> {
     return this.store.createSession()
   }

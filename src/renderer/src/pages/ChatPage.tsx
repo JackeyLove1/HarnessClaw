@@ -521,6 +521,7 @@ const InputBar = ({
 
 export const ChatPage = () => {
   const [sessions, setSessions] = useState<SessionMeta[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [isBooting, setIsBooting] = useState(true)
@@ -545,7 +546,7 @@ export const ChatPage = () => {
         throw new Error('Preload API is unavailable. Check the Electron main/preload process logs.')
       }
 
-      const next = await window.context.listSessions()
+      const next = await window.context.searchSessions(searchQuery)
       if (!disposed) setSessions(next)
       return next
     }
@@ -585,7 +586,7 @@ export const ChatPage = () => {
 
     const refreshSessions = async (): Promise<void> => {
       try {
-        const next = await window.context.listSessions()
+        const next = await window.context.searchSessions(searchQuery)
         if (!disposed) setSessions(next)
       } catch (error) {
         if (!disposed) {
@@ -614,7 +615,30 @@ export const ChatPage = () => {
       disposed = true
       unsubscribe()
     }
-  }, [currentSessionId])
+  }, [currentSessionId, searchQuery])
+
+  useEffect(() => {
+    if (isBooting) return
+    let disposed = false
+
+    const refreshSessionsByQuery = async (): Promise<void> => {
+      try {
+        const next = await window.context.searchSessions(searchQuery)
+        if (!disposed) {
+          setSessions(next)
+        }
+      } catch (error) {
+        if (!disposed) {
+          setBootError(error instanceof Error ? error.message : 'Failed to search sessions.')
+        }
+      }
+    }
+
+    void refreshSessionsByQuery()
+    return () => {
+      disposed = true
+    }
+  }, [isBooting, searchQuery])
 
   const openSession = async (sessionId: string): Promise<void> => {
     const snapshot = await window.context.openSession(sessionId)
@@ -625,7 +649,7 @@ export const ChatPage = () => {
 
   const createSession = async (): Promise<void> => {
     const created = await window.context.createSession()
-    const next = await window.context.listSessions()
+    const next = await window.context.searchSessions(searchQuery)
     setSessions(next)
     await openSession(created.id)
     setDraft('')
@@ -657,7 +681,7 @@ export const ChatPage = () => {
 
     try {
       await window.context.updateSessionTitle(sessionId, normalized)
-      const next = await window.context.listSessions()
+      const next = await window.context.searchSessions(searchQuery)
       setSessions(next)
       setBootError(null)
     } catch (error) {
@@ -674,7 +698,7 @@ export const ChatPage = () => {
 
     try {
       await window.context.deleteSession(sessionId)
-      const listed = await window.context.listSessions()
+      const listed = await window.context.searchSessions(searchQuery)
 
       setMenuSessionId(null)
       setEditingSessionId(null)
@@ -682,7 +706,7 @@ export const ChatPage = () => {
 
       if (listed.length === 0) {
         const created = await window.context.createSession()
-        const refreshed = await window.context.listSessions()
+        const refreshed = await window.context.searchSessions(searchQuery)
         setSessions(refreshed)
         await openSession(created.id)
         setDraft('')
@@ -738,6 +762,8 @@ export const ChatPage = () => {
             <input
               type="text"
               placeholder="搜索"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="w-full bg-transparent text-[14px] text-[#2a2a2a] outline-none placeholder:text-[#8b8b8b]"
             />
           </label>

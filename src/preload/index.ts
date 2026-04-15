@@ -9,6 +9,7 @@ import type {
   ListSessions,
   OpenSession,
   ReadNote,
+  SearchSessions,
   SendMessage,
   SubscribeChatEvents,
   UpdateSessionTitle,
@@ -52,6 +53,8 @@ try {
       invoke<Awaited<ReturnType<DeleteNote>>>('deleteNote', ...args),
     listSessions: (...args: Parameters<ListSessions>) =>
       invoke<Awaited<ReturnType<ListSessions>>>('chat:listSessions', ...args),
+    searchSessions: (...args: Parameters<SearchSessions>) =>
+      invoke<Awaited<ReturnType<SearchSessions>>>('chat:searchSessions', ...args),
     createSession: (...args: Parameters<CreateSession>) =>
       invoke<Awaited<ReturnType<CreateSession>>>('chat:createSession', ...args),
     openSession: (...args: Parameters<OpenSession>) =>

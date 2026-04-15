@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import path from 'path'
+import { ensureChatSchema } from '../chat/sqlite-schema'
 
 let db: Database.Database | null = null
 
@@ -18,6 +19,7 @@ export const initDatabase = (): Database.Database => {
 
   // Enable WAL mode for better performance
   db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
 
   // Create notes table
   db.exec(`
@@ -34,6 +36,8 @@ export const initDatabase = (): Database.Database => {
     CREATE INDEX IF NOT EXISTS idx_notes_title ON notes(title);
     CREATE INDEX IF NOT EXISTS idx_notes_lastEditTime ON notes(lastEditTime DESC);
   `)
+
+  ensureChatSchema(db)
 
   console.info(`[Database] Initialized at ${dbPath}`)
   return db

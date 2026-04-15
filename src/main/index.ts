@@ -5,6 +5,7 @@ import { BrowserWindow, app, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import icon from '../../resources/icon.png?asset'
 import { ChatSupervisor } from './chat/supervisor'
+import { initDatabase } from './lib/database'
 
 let mainWindow: BrowserWindow | null = null
 let chatSupervisor: ChatSupervisor | null = null
@@ -123,6 +124,7 @@ function registerChatIpc(): void {
   }
 
   ipcMain.handle('chat:listSessions', () => chatSupervisor?.listSessions())
+  ipcMain.handle('chat:searchSessions', (_event, query: string) => chatSupervisor?.searchSessions(query))
   ipcMain.handle('chat:createSession', () => chatSupervisor?.createSession())
   ipcMain.handle('chat:openSession', (_, sessionId: string) => chatSupervisor?.openSession(sessionId))
   ipcMain.handle('chat:updateSessionTitle', (_event, sessionId: string, title: string) => {
@@ -146,6 +148,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  initDatabase()
   chatSupervisor = new ChatSupervisor()
 
   registerWindowControls()
