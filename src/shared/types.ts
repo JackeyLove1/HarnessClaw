@@ -9,6 +9,8 @@ export type DeleteNote = (title: NoteInfo['title']) => Promise<boolean>
 export type ListSessions = () => Promise<SessionMeta[]>
 export type CreateSession = () => Promise<SessionMeta>
 export type OpenSession = (sessionId: string) => Promise<SessionSnapshot>
+export type UpdateSessionTitle = (sessionId: string, title: string) => Promise<SessionMeta>
+export type DeleteSession = (sessionId: string) => Promise<void>
 export type SendMessage = (sessionId: string, text: string) => Promise<void>
 export type CancelRun = (sessionId: string) => Promise<void>
 

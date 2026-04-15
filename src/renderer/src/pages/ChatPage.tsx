@@ -137,6 +137,31 @@ const ChevronIcon = ({ className = '' }: { className?: string }) => (
   </svg>
 )
 
+const MoreIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+    <circle cx="5.5" cy="12" r="1.8" />
+    <circle cx="12" cy="12" r="1.8" />
+    <circle cx="18.5" cy="12" r="1.8" />
+  </svg>
+)
+
+const EditIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+    <path d="M12 20h9" />
+    <path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z" />
+  </svg>
+)
+
+const TrashIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="m19 6-1 14H6L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+)
+
 const ToolGroupPanel = ({ toolGroup }: { toolGroup: ToolGroupView }) => (
   <details className="group rounded-2xl border border-[var(--border-soft)] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-left">
@@ -182,34 +207,123 @@ const ToolGroupPanel = ({ toolGroup }: { toolGroup: ToolGroupView }) => (
 const SessionRow = ({
   session,
   isActive,
-  onSelect
+  isMenuOpen,
+  isRenaming,
+  renameDraft,
+  onSelect,
+  onToggleMenu,
+  onRenameDraftChange,
+  onCommitRename,
+  onCancelRename,
+  onStartRename,
+  onDelete
 }: {
   session: SessionMeta
   isActive: boolean
+  isMenuOpen: boolean
+  isRenaming: boolean
+  renameDraft: string
   onSelect: () => void
+  onToggleMenu: () => void
+  onRenameDraftChange: (value: string) => void
+  onCommitRename: () => void
+  onCancelRename: () => void
+  onStartRename: () => void
+  onDelete: () => void
 }) => (
-  <button
-    type="button"
-    onClick={onSelect}
-    className={`group flex w-full items-start gap-3 rounded-2xl px-3 py-2.5 text-left transition ${
-      isActive ? 'bg-[#e4e4e4] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]' : 'hover:bg-[#e8e8e8]/70'
-    }`}
-  >
-    <span
-      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-        isActive ? 'bg-white text-[var(--ink-main)]' : 'bg-[#f2f2f2] text-[var(--ink-faint)]'
+  <div className="relative">
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group flex w-full items-start gap-3 rounded-2xl px-3 py-2.5 pr-11 text-left transition ${
+        isActive ? 'bg-[#e4e4e4] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]' : 'hover:bg-[#e8e8e8]/70'
       }`}
     >
-      {isActive ? <span className="text-[15px] leading-none">🦞</span> : <ChatIcon />}
-    </span>
-    <span className="min-w-0 flex-1">
-      <span className="line-clamp-1 text-[14px] font-semibold text-[#2b2b2b]">{session.title}</span>
-      <span className="mt-0.5 block text-[12px] leading-5 text-[#7b7b7b]">
-        {session.status === 'running' ? '正在生成回复…' : `${session.messageCount} 条消息`}
+      <span
+        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          isActive ? 'bg-white text-[var(--ink-main)]' : 'bg-[#f2f2f2] text-[var(--ink-faint)]'
+        }`}
+      >
+        {isActive ? <span className="text-[15px] leading-none">🦞</span> : <ChatIcon />}
       </span>
-    </span>
-    {!isActive ? <span className="pt-0.5 text-[11px] text-[#8a8a8a]">{formatSessionTime(session.updatedAt)}</span> : null}
-  </button>
+
+      {isRenaming ? (
+        <span className="min-w-0 flex-1" onClick={(event) => event.stopPropagation()}>
+          <input
+            autoFocus
+            value={renameDraft}
+            onChange={(event) => onRenameDraftChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                onCommitRename()
+              }
+
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                onCancelRename()
+              }
+            }}
+            onBlur={onCommitRename}
+            className="h-8 w-full rounded-lg border border-[#d8d8dd] bg-white px-2.5 text-[13px] font-medium text-[#2d2d2f] outline-none focus:border-[#bfc0c8]"
+          />
+        </span>
+      ) : (
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-1 text-[14px] font-semibold text-[#2b2b2b]">{session.title}</span>
+          <span className="mt-0.5 block text-[12px] leading-tight text-[#7b7b7b]">
+            {session.status === 'running' ? '正在生成回复…' : `${session.messageCount} 条消息`}
+          </span>
+        </span>
+      )}
+
+      {!isActive && !isRenaming ? <span className="pt-0.5 text-[11px] text-[#8a8a8a]">{formatSessionTime(session.updatedAt)}</span> : null}
+    </button>
+
+    {!isRenaming ? (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          onToggleMenu()
+        }}
+        aria-label="会话更多操作"
+        className={`absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#8d8d94] transition hover:bg-white hover:text-[#2f2f34] ${
+          isMenuOpen ? 'bg-white text-[#2f2f34] shadow-[0_1px_2px_rgba(0,0,0,0.08)]' : ''
+        }`}
+      >
+        <MoreIcon />
+      </button>
+    ) : null}
+
+    {isMenuOpen ? (
+      <div className="absolute right-3 top-[42px] z-10 w-[118px] rounded-2xl border border-[#efefef] bg-white p-1 shadow-[0_18px_36px_rgba(15,15,20,0.14)]">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onStartRename()
+          }}
+          className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[14px] font-medium text-[#2f2f35] transition hover:bg-[#f4f4f6]"
+        >
+          <EditIcon />
+          编辑名称
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onDelete()
+          }}
+          className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[14px] font-medium text-[#2f2f35] transition hover:bg-[#f8f3f3]"
+        >
+          <TrashIcon />
+          删除
+        </button>
+      </div>
+    ) : null}
+  </div>
 )
 
 const TranscriptItem = ({ entry }: { entry: TranscriptEntry }) => {
@@ -217,7 +331,7 @@ const TranscriptItem = ({ entry }: { entry: TranscriptEntry }) => {
     const message = entry as UserTranscriptEntry
     return (
       <div className="flex justify-end pt-1">
-        <div className="max-w-[66%] rounded-2xl border border-[#f8e7e0] bg-[#fff6f2] px-5 py-3 text-[16px] leading-[1.4] tracking-tight text-[#3a3a3f] shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="max-w-[90%] rounded-xl border border-[#f8e7e0] bg-[#fff6f2] px-4 py-2 text-[14px] leading-[1.6] tracking-[0.02em] text-black">
           <p className="whitespace-pre-wrap">{message.text}</p>
         </div>
       </div>
@@ -411,6 +525,9 @@ export const ChatPage = () => {
   const [draft, setDraft] = useState('')
   const [isBooting, setIsBooting] = useState(true)
   const [bootError, setBootError] = useState<string | null>(null)
+  const [menuSessionId, setMenuSessionId] = useState<string | null>(null)
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [titleDraft, setTitleDraft] = useState('')
   const [state, dispatch] = useReducer(chatViewReducer, undefined, createInitialChatViewState)
   const transcriptRef = useRef<HTMLDivElement>(null)
 
@@ -515,6 +632,74 @@ export const ChatPage = () => {
     setBootError(null)
   }
 
+  const startEditingTitle = (session: SessionMeta): void => {
+    setMenuSessionId(null)
+    setEditingSessionId(session.id)
+    setTitleDraft(session.title)
+  }
+
+  const commitTitleEdit = async (sessionId: string): Promise<void> => {
+    const normalized = titleDraft.trim()
+    const current = sessions.find((session) => session.id === sessionId)
+    const shouldCancel = !normalized || !current
+
+    if (shouldCancel) {
+      setEditingSessionId(null)
+      setTitleDraft('')
+      return
+    }
+
+    if (normalized === current.title) {
+      setEditingSessionId(null)
+      setTitleDraft('')
+      return
+    }
+
+    try {
+      await window.context.updateSessionTitle(sessionId, normalized)
+      const next = await window.context.listSessions()
+      setSessions(next)
+      setBootError(null)
+    } catch (error) {
+      setBootError(error instanceof Error ? error.message : 'Failed to update session title.')
+    } finally {
+      setEditingSessionId(null)
+      setTitleDraft('')
+    }
+  }
+
+  const handleDeleteSession = async (sessionId: string): Promise<void> => {
+    const confirmed = window.confirm('确定要删除这个会话吗？该操作无法撤销。')
+    if (!confirmed) return
+
+    try {
+      await window.context.deleteSession(sessionId)
+      const listed = await window.context.listSessions()
+
+      setMenuSessionId(null)
+      setEditingSessionId(null)
+      setTitleDraft('')
+
+      if (listed.length === 0) {
+        const created = await window.context.createSession()
+        const refreshed = await window.context.listSessions()
+        setSessions(refreshed)
+        await openSession(created.id)
+        setDraft('')
+        setBootError(null)
+        return
+      }
+
+      setSessions(listed)
+      if (currentSessionId === sessionId) {
+        await openSession(listed[0].id)
+      }
+      setBootError(null)
+    } catch (error) {
+      setBootError(error instanceof Error ? error.message : 'Failed to delete session.')
+    }
+  }
+
   const handleSend = async (): Promise<void> => {
     if (!currentSessionId || !draft.trim() || state.isRunning) return
 
@@ -577,7 +762,24 @@ export const ChatPage = () => {
                   key={session.id}
                   session={session}
                   isActive={session.id === currentSessionId}
-                  onSelect={() => void openSession(session.id)}
+                  isMenuOpen={menuSessionId === session.id}
+                  isRenaming={editingSessionId === session.id}
+                  renameDraft={editingSessionId === session.id ? titleDraft : session.title}
+                  onSelect={() => {
+                    setMenuSessionId(null)
+                    setEditingSessionId(null)
+                    setTitleDraft('')
+                    void openSession(session.id)
+                  }}
+                  onToggleMenu={() => setMenuSessionId((current) => (current === session.id ? null : session.id))}
+                  onRenameDraftChange={setTitleDraft}
+                  onCommitRename={() => void commitTitleEdit(session.id)}
+                  onCancelRename={() => {
+                    setEditingSessionId(null)
+                    setTitleDraft('')
+                  }}
+                  onStartRename={() => startEditingTitle(session)}
+                  onDelete={() => void handleDeleteSession(session.id)}
                 />
               ))
             )}

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
@@ -157,5 +157,22 @@ export class ChatSessionStore {
     )
 
     return sortSessionsByUpdatedAt(metas.filter((value): value is SessionMeta => value != null))
+  }
+
+  async updateSessionTitle(sessionId: string, title: string): Promise<SessionMeta> {
+    const safeTitle = clampSessionTitle(title)
+    if (!safeTitle) {
+      throw new Error('Session title cannot be empty.')
+    }
+
+    return this.updateMeta(sessionId, {
+      title: safeTitle,
+      updatedAt: Date.now()
+    })
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    const paths = this.getSessionPaths(sessionId)
+    await rm(paths.dir, { recursive: true, force: true })
   }
 }

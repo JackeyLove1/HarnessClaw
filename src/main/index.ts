@@ -38,7 +38,7 @@ function createWindow(): void {
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     const html = `
-      <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#f8f7f4;color:#171717;font-family:ui-sans-serif,system-ui,sans-serif;">
+      <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#f8f7f4;color:#171717;font-family:'MyriadPro-Regular','MyriadPro-Light','汉仪旗黑-55S','汉仪旗黑-40S','Microsoft YaHei','Noto Sans SC',sans-serif;">
         <section style="max-width:840px;width:100%;border:1px dashed #d4d4d4;border-radius:24px;padding:24px;background:white;box-shadow:0 20px 60px rgba(0,0,0,0.06);">
           <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#737373;">Window Load Error</div>
           <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2;">NoteMark failed to load its renderer.</h1>
@@ -54,7 +54,7 @@ URL: ${validatedURL}</pre>
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     const html = `
-      <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#f8f7f4;color:#171717;font-family:ui-sans-serif,system-ui,sans-serif;">
+      <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#f8f7f4;color:#171717;font-family:'MyriadPro-Regular','MyriadPro-Light','汉仪旗黑-55S','汉仪旗黑-40S','Microsoft YaHei','Noto Sans SC',sans-serif;">
         <section style="max-width:840px;width:100%;border:1px dashed #d4d4d4;border-radius:24px;padding:24px;background:white;box-shadow:0 20px 60px rgba(0,0,0,0.06);">
           <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#737373;">Renderer Crashed</div>
           <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2;">The renderer process exited unexpectedly.</h1>
@@ -125,6 +125,12 @@ function registerChatIpc(): void {
   ipcMain.handle('chat:listSessions', () => chatSupervisor?.listSessions())
   ipcMain.handle('chat:createSession', () => chatSupervisor?.createSession())
   ipcMain.handle('chat:openSession', (_, sessionId: string) => chatSupervisor?.openSession(sessionId))
+  ipcMain.handle('chat:updateSessionTitle', (_event, sessionId: string, title: string) => {
+    return chatSupervisor?.updateSessionTitle(sessionId, title)
+  })
+  ipcMain.handle('chat:deleteSession', async (_event, sessionId: string) => {
+    await chatSupervisor?.deleteSession(sessionId)
+  })
   ipcMain.handle('chat:sendMessage', async (_event, sessionId: string, text: string) => {
     await chatSupervisor?.sendMessage(sessionId, text)
   })

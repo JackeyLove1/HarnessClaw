@@ -2,6 +2,7 @@ import type {
   CancelRun,
   CreateNote,
   CreateSession,
+  DeleteSession,
   DeleteNote,
   GetNotes,
   ListSessions,
@@ -9,6 +10,7 @@ import type {
   ReadNote,
   SendMessage,
   SubscribeChatEvents,
+  UpdateSessionTitle,
   WindowClose,
   WindowIsMaximized,
   WindowMinimize,
@@ -28,6 +30,8 @@ declare global {
       listSessions: ListSessions
       createSession: CreateSession
       openSession: OpenSession
+      updateSessionTitle: UpdateSessionTitle
+      deleteSession: DeleteSession
       sendMessage: SendMessage
       cancelRun: CancelRun
       subscribeChatEvents: SubscribeChatEvents

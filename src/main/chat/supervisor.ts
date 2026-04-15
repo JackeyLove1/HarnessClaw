@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { BrowserWindow } from 'electron'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
-import { ChatSessionStore, DEFAULT_SESSION_TITLE, fallbackTitleFromUserText } from './session-store'
+import { ChatSessionStore, DEFAULT_SESSION_TITLE, clampSessionTitle, fallbackTitleFromUserText } from './session-store'
 
 // @ts-ignore Runtime lives in a top-level JS module by design.
 import { createChatRuntime } from '../../../agent-runtime/index.js'
@@ -71,6 +71,36 @@ export class ChatSupervisor {
 
   async openSession(sessionId: string): Promise<SessionSnapshot> {
     return this.store.openSession(sessionId)
+  }
+
+  async updateSessionTitle(sessionId: string, title: string): Promise<SessionMeta> {
+    const safeTitle = clampSessionTitle(title)
+    if (!safeTitle) {
+      throw new Error('Session title cannot be empty.')
+    }
+
+    const updated = await this.store.updateSessionTitle(sessionId, safeTitle)
+    const titleEvent: ChatEvent = {
+      type: 'session.title.updated',
+      eventId: createEventId('session.title.updated'),
+      sessionId,
+      timestamp: updated.updatedAt,
+      title: updated.title
+    }
+
+    await this.store.appendEvent(sessionId, titleEvent)
+    this.broadcast(titleEvent)
+    return updated
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    const activeRun = this.activeRuns.get(sessionId)
+    if (activeRun) {
+      activeRun.abortController.abort()
+      this.activeRuns.delete(sessionId)
+    }
+
+    await this.store.deleteSession(sessionId)
   }
 
   async cancelRun(sessionId: string): Promise<void> {

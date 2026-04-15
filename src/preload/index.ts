@@ -3,6 +3,7 @@ import type {
   CancelRun,
   CreateNote,
   CreateSession,
+  DeleteSession,
   DeleteNote,
   GetNotes,
   ListSessions,
@@ -10,6 +11,7 @@ import type {
   ReadNote,
   SendMessage,
   SubscribeChatEvents,
+  UpdateSessionTitle,
   WindowClose,
   WindowIsMaximized,
   WindowMinimize,
@@ -54,6 +56,10 @@ try {
       invoke<Awaited<ReturnType<CreateSession>>>('chat:createSession', ...args),
     openSession: (...args: Parameters<OpenSession>) =>
       invoke<Awaited<ReturnType<OpenSession>>>('chat:openSession', ...args),
+    updateSessionTitle: (...args: Parameters<UpdateSessionTitle>) =>
+      invoke<Awaited<ReturnType<UpdateSessionTitle>>>('chat:updateSessionTitle', ...args),
+    deleteSession: (...args: Parameters<DeleteSession>) =>
+      invoke<Awaited<ReturnType<DeleteSession>>>('chat:deleteSession', ...args),
     sendMessage: (...args: Parameters<SendMessage>) =>
       invoke<Awaited<ReturnType<SendMessage>>>('chat:sendMessage', ...args),
     cancelRun: (...args: Parameters<CancelRun>) =>

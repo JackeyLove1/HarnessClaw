@@ -53,7 +53,20 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: [
+          'MyriadPro-Regular',
+          'MyriadPro-Light',
+          '汉仪旗黑-55S',
+          '汉仪旗黑-40S',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Microsoft YaHei',
+          'Noto Sans SC',
+          'sans-serif'
+        ],
+        brandEn: ['MyriadPro-Regular', 'MyriadPro-Light', '-apple-system', 'Segoe UI', 'sans-serif'],
+        brandZh: ['汉仪旗黑-55S', '汉仪旗黑-40S', 'Microsoft YaHei', 'Noto Sans SC', 'sans-serif']
       },
       maxWidth: {
         'notion': '900px',

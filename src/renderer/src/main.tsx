@@ -16,7 +16,7 @@ const renderFatalError = (message: string): void => {
   overlay.id = 'notemark-fatal-error'
   overlay.setAttribute(
     'style',
-    'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(248,247,244,0.96);color:#171717;font-family:ui-sans-serif,system-ui,sans-serif;'
+    "position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(248,247,244,0.96);color:#171717;font-family:'MyriadPro-Regular','MyriadPro-Light','汉仪旗黑-55S','汉仪旗黑-40S','Microsoft YaHei','Noto Sans SC',sans-serif;"
   )
   overlay.innerHTML = `
     <section style="max-width:840px;width:100%;border:1px dashed #d4d4d4;border-radius:24px;padding:24px;background:white;box-shadow:0 20px 60px rgba(0,0,0,0.06);">
