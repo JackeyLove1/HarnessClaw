@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
+import { mkdirSync } from 'node:fs'
+import os from 'node:os'
 import path from 'path'
 import { ensureChatSchema } from '../chat/sqlite-schema'
 
@@ -14,7 +15,9 @@ export interface NoteRecord {
 export const initDatabase = (): Database.Database => {
   if (db) return db
 
-  const dbPath = path.join(app.getPath('userData'), 'notemark.db')
+  const dbDirectory = path.join(os.homedir(), '.deepclaw')
+  mkdirSync(dbDirectory, { recursive: true })
+  const dbPath = path.join(dbDirectory, 'deepclaw.db')
   db = new Database(dbPath)
 
   // Enable WAL mode for better performance

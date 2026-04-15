@@ -7,9 +7,7 @@ import {
   clampSessionTitle,
   fallbackTitleFromUserText
 } from './session-store'
-
-// @ts-ignore Runtime lives in a top-level JS module by design.
-import { createChatRuntime } from '../../../agent-runtime/index.js'
+import { createChatRuntime } from './runtime'
 
 type ActiveRun = {
   abortController: AbortController
