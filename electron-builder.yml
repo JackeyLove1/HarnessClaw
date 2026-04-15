@@ -1,7 +1,8 @@
-appId: com.electron.app
-productName: note-mark
+appId: com.deepclaw.notemark
+productName: DeepClaw
 directories:
   buildResources: build
+asar: false
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -11,13 +12,20 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  - node_modules/better-sqlite3/**
+  - node_modules/**/build/Release/*.node
 win:
-  executableName: note-mark
+  target:
+    - nsis
+  executableName: DeepClaw
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

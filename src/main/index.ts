@@ -25,7 +25,43 @@ import { initDatabase } from './lib/database'
 let mainWindow: BrowserWindow | null = null
 let chatSupervisor: ChatSupervisor | null = null
 
+const toErrorText = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.stack || error.message
+  }
+  return String(error)
+}
+
+const createStartupErrorWindow = (title: string, detail: string): void => {
+  const errorWindow = new BrowserWindow({
+    width: 980,
+    height: 680,
+    minWidth: 760,
+    minHeight: 520,
+    show: true,
+    autoHideMenuBar: true,
+    title: 'DeepClaw Startup Error',
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true
+    }
+  })
+
+  const html = `
+  <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#f8f7f4;color:#171717;font-family:'MyriadPro-Regular','MyriadPro-Light','汉仪旗黑-55S','汉仪旗黑-40S','Microsoft YaHei','Noto Sans SC',sans-serif;">
+    <section style="max-width:980px;width:100%;border:1px dashed #d4d4d4;border-radius:24px;padding:24px;background:white;box-shadow:0 20px 60px rgba(0,0,0,0.06);">
+      <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#737373;">Main Process Startup Error</div>
+      <h1 style="margin:12px 0 0;font-size:28px;line-height:1.2;">${title}</h1>
+      <pre style="margin-top:16px;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:#404040;">${detail}</pre>
+    </section>
+  </main>
+  `
+
+  void errorWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+}
+
 function createWindow(): void {
+  const isMac = process.platform === 'darwin'
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -37,10 +73,14 @@ function createWindow(): void {
     center: true,
     title: 'NoteMark',
     frame: false,
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
-    titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 15, y: 10 },
+    ...(isMac
+      ? {
+          vibrancy: 'under-window',
+          visualEffectState: 'active',
+          titleBarStyle: 'hidden',
+          trafficLightPosition: { x: 15, y: 10 }
+        }
+      : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -48,9 +88,31 @@ function createWindow(): void {
     }
   })
 
+  const showWindowSafely = (): void => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.show()
+    mainWindow.focus()
+  }
+
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
+    showWindowSafely()
   })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    showWindowSafely()
+  })
+
+  // Some production environments never emit ready-to-show.
+  // Ensure users still get a visible window even when first paint stalls.
+  setTimeout(() => {
+    showWindowSafely()
+  }, 2500)
 
   mainWindow.webContents.on(
     'did-fail-load',
@@ -68,6 +130,7 @@ URL: ${validatedURL}</pre>
     `
 
       void mainWindow?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+      showWindowSafely()
     }
   )
 
@@ -84,6 +147,7 @@ Exit code: ${details.exitCode}</pre>
     `
 
     void mainWindow?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    showWindowSafely()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -177,29 +241,51 @@ function registerSettingsIpc(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.deepclaw.notemark')
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+  try {
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
 
-  initDatabase()
-  void hydrateAnthropicSettings().catch((error: unknown) => {
-    console.error('Failed to hydrate Anthropic settings from ~/.deepclaw/.env', error)
-  })
-  chatSupervisor = new ChatSupervisor()
+    initDatabase()
+    void hydrateAnthropicSettings().catch((error: unknown) => {
+      console.error('Failed to hydrate Anthropic settings from ~/.deepclaw/.env', error)
+    })
+    chatSupervisor = new ChatSupervisor()
 
-  registerWindowControls()
-  registerNoteIpc()
-  registerChatIpc()
-  registerSettingsIpc()
-  createWindow()
+    registerWindowControls()
+    registerNoteIpc()
+    registerChatIpc()
+    registerSettingsIpc()
+    createWindow()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
-  })
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
+  } catch (error) {
+    const detail = toErrorText(error)
+    console.error('[startup] initialization failed', detail)
+    createStartupErrorWindow('Initialization failed before UI booted.', detail)
+  }
+})
+
+process.on('uncaughtException', (error) => {
+  const detail = toErrorText(error)
+  console.error('[process] uncaughtException', detail)
+  if (app.isReady()) {
+    createStartupErrorWindow('Uncaught exception in main process.', detail)
+  }
+})
+
+process.on('unhandledRejection', (reason) => {
+  const detail = toErrorText(reason)
+  console.error('[process] unhandledRejection', detail)
+  if (app.isReady()) {
+    createStartupErrorWindow('Unhandled promise rejection in main process.', detail)
+  }
 })
 
 app.on('window-all-closed', () => {

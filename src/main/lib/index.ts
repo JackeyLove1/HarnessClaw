@@ -3,7 +3,7 @@ import { NoteInfo } from '@shared/models'
 import { CreateNote, DeleteNote, GetNotes, ReadNote, WriteNote } from '@shared/types'
 import { deleteNoteByTitle, getAllNotes, insertNote, updateNoteTimestamp } from './database'
 import { dialog } from 'electron'
-import { ensureDir, readFile, readdir, remove, stat, writeFile } from 'fs-extra'
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { isEmpty } from 'lodash'
 import { homedir } from 'os'
 import path from 'path'
@@ -16,7 +16,7 @@ export const getRootDir = () => {
 export const getNotes: GetNotes = async () => {
   const rootDir = getRootDir()
 
-  await ensureDir(rootDir)
+  await mkdir(rootDir, { recursive: true })
 
   // Try to get notes from database first
   let notes = getAllNotes()
@@ -90,7 +90,7 @@ export const writeNote: WriteNote = async (filename, content) => {
 export const createNote: CreateNote = async () => {
   const rootDir = getRootDir()
 
-  await ensureDir(rootDir)
+  await mkdir(rootDir, { recursive: true })
 
   const { filePath, canceled } = await dialog.showSaveDialog({
     title: 'New note',
@@ -147,7 +147,7 @@ export const deleteNote: DeleteNote = async (filename) => {
   }
 
   console.info(`Deleting note: ${filename}`)
-  await remove(`${rootDir}/${filename}.md`)
+  await rm(`${rootDir}/${filename}.md`, { force: true })
 
   // Remove from database
   deleteNoteByTitle(filename)
