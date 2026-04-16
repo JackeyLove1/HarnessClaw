@@ -1,7 +1,23 @@
 import type { SessionMeta } from '@shared/models';
+import {
+  ChevronDown,
+  ChevronRight,
+  Compass,
+  Link2,
+  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Send,
+  Sparkles,
+  Square,
+  Trash2,
+  Wrench,
+  Zap
+} from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState, type Ref } from 'react';
 import { toast } from 'sonner';
-import sparkIcon from '../assets/svg/spark.svg';
 import {
   buildFeedbackKey,
   copyAssistantMessage,
@@ -68,204 +84,6 @@ const mapSendErrorMessage = (error: unknown): string => {
   return message
 }
 
-const SearchIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <circle cx="11" cy="11" r="7" />
-    <path d="m20 20-3.5-3.5" />
-  </svg>
-)
-
-const PlusIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M12 5v14" />
-    <path d="M5 12h14" />
-  </svg>
-)
-
-const ChatIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M7 18 3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7Z" />
-    <path d="M8 10h8" />
-    <path d="M8 14h5" />
-  </svg>
-)
-
-const SparkIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
-  <img src={sparkIcon} alt="" className={`${className} shrink-0`} aria-hidden="true" />
-)
-
-const CompassIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <circle cx="12" cy="12" r="8" />
-    <path d="m15.5 8.5-2.2 6.1-6.1 2.2 2.2-6.1 6.1-2.2Z" />
-  </svg>
-)
-
-const BoltIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
-  </svg>
-)
-
-const WrenchIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="m14 7 3-3a4 4 0 0 1-5 5l-6.5 6.5a2 2 0 1 1-2.8-2.8L9.2 6.2a4 4 0 0 1 5-5l-3 3 2.8 2.8Z" />
-  </svg>
-)
-
-const SendIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M21 3 10 14" />
-    <path d="m21 3-7 18-4-7-7-4 18-7Z" />
-  </svg>
-)
-
-const LinkIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M10.8 13.2a4 4 0 0 1 0-5.7l2-2a4 4 0 1 1 5.7 5.7l-1.3 1.3" />
-    <path d="M13.2 10.8a4 4 0 0 1 0 5.7l-2 2a4 4 0 0 1-5.7-5.7l1.3-1.3" />
-  </svg>
-)
-
-const ChevronDownIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-3.5 w-3.5"
-  >
-    <path d="m6 9 6 6 6-6" />
-  </svg>
-)
-
-const StopIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
-    <rect x="6.5" y="6.5" width="11" height="11" rx="2.2" />
-  </svg>
-)
-
-const ChevronIcon = ({ className = '' }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={`h-4 w-4 ${className}`}
-  >
-    <path d="m9 6 6 6-6 6" />
-  </svg>
-)
-
-const MoreIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-    <circle cx="5.5" cy="12" r="1.8" />
-    <circle cx="12" cy="12" r="1.8" />
-    <circle cx="18.5" cy="12" r="1.8" />
-  </svg>
-)
-
-const EditIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M12 20h9" />
-    <path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5Z" />
-  </svg>
-)
-
-const TrashIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-  >
-    <path d="M3 6h18" />
-    <path d="M8 6V4h8v2" />
-    <path d="m19 6-1 14H6L5 6" />
-    <path d="M10 11v6" />
-    <path d="M14 11v6" />
-  </svg>
-)
-
 const ToolGroupPanel = ({ toolGroup }: { toolGroup: ToolGroupView }) => {
   const title =
     toolGroup.status === 'running'
@@ -285,7 +103,7 @@ const ToolGroupPanel = ({ toolGroup }: { toolGroup: ToolGroupView }) => {
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f5f5f7] text-[var(--ink-subtle)]">
-            <WrenchIcon />
+            <Wrench className="h-4 w-4" />
           </span>
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold text-[var(--ink-main)]">{title}</div>
@@ -295,7 +113,7 @@ const ToolGroupPanel = ({ toolGroup }: { toolGroup: ToolGroupView }) => {
             </div>
           </div>
         </div>
-        <ChevronIcon className="text-[var(--ink-faint)] transition-transform duration-200 group-open:rotate-90" />
+        <ChevronRight className="h-4 w-4 text-[var(--ink-faint)] transition-transform duration-200 group-open:rotate-90" />
       </summary>
       <div className="border-t border-[var(--border-soft)] px-4 py-2">
         {toolGroup.calls.map((call) => (
@@ -318,7 +136,7 @@ const ToolGroupPanel = ({ toolGroup }: { toolGroup: ToolGroupView }) => {
                 >
                   {statusLabel(call.status)}
                 </span>
-                <ChevronIcon className="h-3.5 w-3.5 text-[var(--ink-faint)] transition-transform duration-200 group-open/call:rotate-90" />
+                <ChevronRight className="h-3.5 w-3.5 text-[var(--ink-faint)] transition-transform duration-200 group-open/call:rotate-90" />
               </div>
             </summary>
             <div className="space-y-1.5 pt-2 text-[11.5px] leading-5 text-[var(--ink-soft)]">
@@ -374,7 +192,7 @@ const SessionRow = ({
           isActive ? 'bg-white text-[var(--ink-main)]' : 'bg-[#f2f2f2] text-[var(--ink-faint)]'
         }`}
       >
-        {isActive ? <span className="text-[15px] leading-none">🦞</span> : <ChatIcon />}
+        {isActive ? <span className="text-[15px] leading-none">🦞</span> : <MessageSquare className="h-4 w-4" />}
       </span>
 
       {isRenaming ? (
@@ -429,7 +247,7 @@ const SessionRow = ({
           isMenuOpen ? 'bg-white text-[#2f2f34] shadow-[0_1px_2px_rgba(0,0,0,0.08)]' : ''
         }`}
       >
-        <MoreIcon />
+        <MoreHorizontal className="h-4 w-4" />
       </button>
     ) : null}
 
@@ -443,7 +261,7 @@ const SessionRow = ({
           }}
           className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[14px] font-medium text-[#2f2f35] transition hover:bg-[#f4f4f6]"
         >
-          <EditIcon />
+          <Pencil className="h-4 w-4" />
           编辑名称
         </button>
         <button
@@ -454,7 +272,7 @@ const SessionRow = ({
           }}
           className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[14px] font-medium text-[#2f2f35] transition hover:bg-[#f8f3f3]"
         >
-          <TrashIcon />
+          <Trash2 className="h-4 w-4" />
           删除
         </button>
       </div>
@@ -498,7 +316,10 @@ const TranscriptItem = ({
       <div className="max-w-[88%] pl-1">
         {/* <div className="mb-2 flex items-center gap-2 text-[8px] font-semibold text-[#6c6d74]">
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-full">
-            <SparkIcon className={`h-8 w-8 ${message.isStreaming ? 'animate-spin' : ''}`} />
+            <Sparkles
+              className={`h-8 w-8 shrink-0 ${message.isStreaming ? 'animate-spin' : ''}`}
+              aria-hidden
+            />
           </span>
           {message.isStreaming ? (
             <span className="h-2 w-2 animate-pulse-dot rounded-full bg-emerald-500" />
@@ -605,15 +426,15 @@ const InputBar = ({
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#8f919c]">
               {chip === '默认大模型' ? (
-                <BoltIcon />
+                <Zap className="h-4 w-4" />
               ) : chip === '技能' ? (
-                <SparkIcon />
+                <Sparkles className="h-4 w-4" />
               ) : (
-                <CompassIcon />
+                <Compass className="h-4 w-4" />
               )}
             </span>
             {chip}
-            {chip !== '找灵感' ? <ChevronDownIcon /> : null}
+            {chip !== '找灵感' ? <ChevronDown className="h-3.5 w-3.5" /> : null}
           </button>
         ))}
         <button
@@ -621,7 +442,7 @@ const InputBar = ({
           className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#ececf1] text-[#6d707c] transition hover:bg-[#e4e4eb] hover:text-[var(--ink-main)]"
           aria-label="关联内容"
         >
-          <LinkIcon />
+          <Link2 className="h-4 w-4" />
         </button>
       </div>
 
@@ -633,7 +454,7 @@ const InputBar = ({
             disabled={isCancelling}
             className="inline-flex h-10 items-center gap-2 rounded-full border border-[#dddde3] bg-white px-4 text-[13px] font-medium text-[var(--ink-soft)] transition hover:bg-[#f3f3f7] disabled:opacity-50"
           >
-            <StopIcon />
+            <Square className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
             {isCancelling ? '停止中…' : '停止'}
           </button>
         ) : null}
@@ -645,7 +466,7 @@ const InputBar = ({
           className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1f1f23] text-white transition hover:bg-[#2b2b31] disabled:cursor-not-allowed disabled:bg-[#e8e8ee] disabled:text-[#b8bac3]"
           aria-label="发送消息"
         >
-          <SendIcon />
+          <Send className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -1036,7 +857,7 @@ export const ChatPage = () => {
       <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-[#dddddd] bg-[#efefef] px-3 py-4">
         <div className="space-y-4">
           <label className="flex h-10 items-center gap-2 rounded-full bg-[#e7e7e7] px-4 text-[#8b8b8b]">
-            <SearchIcon />
+            <Search className="h-4 w-4" />
             <input
               type="text"
               placeholder="搜索"
@@ -1051,7 +872,7 @@ export const ChatPage = () => {
             onClick={() => void createSession()}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#d9d9d9] bg-[#f2f2f2] text-[14px] font-semibold text-[#1f1f1f] transition hover:bg-[#ececec]"
           >
-            <PlusIcon />
+            <Plus className="h-4 w-4" strokeWidth={2.2} />
             新建 Agent
           </button>
         </div>
@@ -1099,7 +920,7 @@ export const ChatPage = () => {
         <header className="flex shrink-0 items-center justify-between gap-4 px-6 py-4">
           {/* <div className="hidden items-center gap-2 text-[15px] font-semibold text-[#4f93ff] md:flex">
             <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#f5f5f7]">
-              <SparkIcon />
+              <Sparkles className="h-4 w-4" />
             </span>
             DeepClaw
           </div> */}
