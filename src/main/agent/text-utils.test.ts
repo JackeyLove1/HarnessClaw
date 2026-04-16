@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ChatEvent } from '@shared/models'
 import {
   clampText,
+  clampTextPreserveLayout,
   extractTextContent,
   fallbackTitle,
   sanitizeTitle,
@@ -13,6 +14,12 @@ describe('runtime text utils', () => {
   it('clamps and normalizes text content', () => {
     expect(clampText('  hello   world  ')).toBe('hello world')
     expect(clampText('abcdef', 4)).toBe('abc…')
+  })
+
+  it('clamps text while preserving markdown layout', () => {
+    const value = '```ts\nconst a = 1\nconst b = 2\n```'
+    expect(clampTextPreserveLayout(value)).toBe(value)
+    expect(clampTextPreserveLayout('abcdef', 4)).toBe('abc…')
   })
 
   it('extracts text-only content from mixed content arrays', () => {

@@ -3,7 +3,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam, RawMessageStreamEvent } from '@anthropic-ai/sdk/resources/messages'
 import type { ChatEvent } from '@shared/models'
 import { getAnthropicApiKey, resolveRuntimeConfig } from './config'
-import { clampText, fallbackTitle, sanitizeTitle, summarizeValue, toAnthropicMessages } from './text-utils'
+import {
+  clampText,
+  clampTextPreserveLayout,
+  fallbackTitle,
+  sanitizeTitle,
+  summarizeValue,
+  toAnthropicMessages
+} from './text-utils'
 import { createReadOnlyTools } from './tools'
 import type { ChatRuntime, ConnectionTestResult, GenerateTitleArgs, RunTurnArgs } from './types'
 
@@ -288,7 +295,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
       })
     }
 
-    const finalText = clampText(textBuffer, 12000)
+    const finalText = clampTextPreserveLayout(textBuffer, 12000)
     yield toEvent({
       type: 'assistant.completed',
       messageId: assistantMessageId,

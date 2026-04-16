@@ -276,6 +276,9 @@ app.whenReady().then(() => {
       console.error('Failed to hydrate Anthropic settings from ~/.deepclaw/.env', error)
     })
     chatSupervisor = new ChatSupervisor()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      chatSupervisor.attachWindow(mainWindow)
+    }
 
     registerNoteIpc()
     registerChatIpc()

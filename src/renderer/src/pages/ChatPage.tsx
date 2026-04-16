@@ -37,6 +37,7 @@ import {
     type UserTranscriptEntry
 } from '../chat/reducer';
 import { AssistantMessageActions } from '../components/AssistantMessageActions';
+import { AssistantMessageMarkdown } from '../components/AssistantMessageMarkdown';
 
 const INPUT_CHIPS = ['默认大模型', '技能', '找灵感']
 
@@ -325,13 +326,17 @@ const TranscriptItem = ({
             <span className="h-2 w-2 animate-pulse-dot rounded-full bg-emerald-500" />
           ) : null}
         </div> */}
-        <div className="rounded-2xl bg-transparent px-1 py-1 text-[16px] font-semibold leading-[1.48] tracking-tight text-[var(--ink-main)]">
+        <div className="rounded-2xl bg-transparent px-1 py-1 text-[16px] font-normal leading-[1.48] tracking-tight text-[var(--ink-main)]">
           {message.toolGroup ? (
             <div className="mb-4 max-w-[780px]">
               <ToolGroupPanel toolGroup={message.toolGroup} />
             </div>
           ) : null}
-          <p className="whitespace-pre-wrap">{message.text || '处理中…'}</p>
+          {message.text.trim() ? (
+            <AssistantMessageMarkdown content={message.text} />
+          ) : (
+            <p className="whitespace-pre-wrap font-semibold">处理中…</p>
+          )}
           {!showAssistantActions ? (
             <time className="mt-3 block text-[11px] font-medium text-[var(--ink-faint)]">
               {message.isStreaming
@@ -512,6 +517,7 @@ const EmptyState = ({
 )
 
 export const ChatPage = () => {
+  const AUTO_SCROLL_BOTTOM_THRESHOLD = 96
   const [sessions, setSessions] = useState<SessionMeta[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -531,6 +537,7 @@ export const ChatPage = () => {
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const shouldFocusComposerRef = useRef(false)
   const copyFeedbackTimeoutRef = useRef<number | null>(null)
+  const shouldAutoScrollRef = useRef(true)
   const hasTranscript = state.transcript.length > 0
 
   const visibleSessions = useMemo(() => selectVisibleSessions(sessions), [sessions])
@@ -564,8 +571,41 @@ export const ChatPage = () => {
   }, [currentSessionId])
 
   useEffect(() => {
-    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: 'smooth' })
-  }, [state.transcript, state.isRunning])
+    shouldAutoScrollRef.current = true
+  }, [currentSessionId])
+
+  useEffect(() => {
+    const transcript = transcriptRef.current
+    if (!transcript) return
+
+    const updateShouldAutoScroll = () => {
+      const distanceToBottom =
+        transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight
+      shouldAutoScrollRef.current = distanceToBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD
+    }
+
+    updateShouldAutoScroll()
+    transcript.addEventListener('scroll', updateShouldAutoScroll, { passive: true })
+    return () => {
+      transcript.removeEventListener('scroll', updateShouldAutoScroll)
+    }
+  }, [currentSessionId, hasTranscript, AUTO_SCROLL_BOTTOM_THRESHOLD])
+
+  useEffect(() => {
+    if (!hasTranscript || !shouldAutoScrollRef.current) return
+
+    const transcript = transcriptRef.current
+    if (!transcript) return
+
+    const rafId = requestAnimationFrame(() => {
+      transcript.scrollTo({
+        top: transcript.scrollHeight,
+        behavior: state.isRunning ? 'auto' : 'smooth'
+      })
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [state.transcript, state.isRunning, hasTranscript])
 
   useEffect(() => {
     if (!shouldFocusComposerRef.current) return

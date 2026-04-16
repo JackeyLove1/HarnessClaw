@@ -9,6 +9,12 @@ export const clampText = (value: unknown, maxLength = 280): string => {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text
 }
 
+export const clampTextPreserveLayout = (value: unknown, maxLength = 280): string => {
+  const text = String(value ?? '')
+  if (!text) return ''
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text
+}
+
 export const extractTextContent = (content: unknown): string => {
   if (!Array.isArray(content)) return ''
 
