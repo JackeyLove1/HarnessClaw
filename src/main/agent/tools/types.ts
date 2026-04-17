@@ -20,6 +20,7 @@ export type Tool = {
   label: string
   description: string
   inputSchema: ToolInputSchema
+  priority?: number
   execute: (toolCallId: string, params: Record<string, unknown>) => Promise<ToolExecuteResult>
 }
 

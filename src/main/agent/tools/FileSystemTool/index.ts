@@ -18,6 +18,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import type { Tool } from '../types';
+import { getToolPriority } from '../priorities';
 
 const execFileAsync = promisify(execFile)
 
@@ -1259,6 +1260,7 @@ export function createReadFileTool(): Tool {
   return {
     name: 'read_file',
     label: 'Read file',
+    priority: getToolPriority('read_file'),
     description:
       'Read a text file with line numbers and pagination. Format: LINE_NUM|CONTENT. ' +
       'Use offset (1-based) and limit for large files. Reads over the character budget are rejected.',
@@ -1295,6 +1297,7 @@ export function createWriteFileTool(): Tool {
   return {
     name: 'write_file',
     label: 'Write file',
+    priority: getToolPriority('write_file'),
     description:
       'Write content to a file, replacing any existing file. Parent directories are created. ' +
       'Use patch for targeted edits.',
@@ -1319,6 +1322,7 @@ export function createPatchTool(): Tool {
   return {
     name: 'patch',
     label: 'Patch file',
+    priority: getToolPriority('patch'),
     description:
       'Targeted edits: mode "replace" finds a unique old_string, or mode "patch" applies a V4A-style multi-file patch.',
     inputSchema: {
@@ -1355,6 +1359,7 @@ export function createSearchFilesTool(): Tool {
   return {
     name: 'search_files',
     label: 'Search files',
+    priority: getToolPriority('search_files'),
     description:
       'Search file contents (regex) or list files by glob under a directory. Uses ripgrep when installed.',
     inputSchema: {

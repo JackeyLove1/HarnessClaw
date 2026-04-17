@@ -1,4 +1,5 @@
 import type { Tool } from '../types'
+import { getToolPriority } from '../priorities'
 
 export function createGetTimeTool(): Tool {
   return {
@@ -10,6 +11,7 @@ export function createGetTimeTool(): Tool {
       properties: {},
       additionalProperties: false
     },
+    priority: getToolPriority('get_time'),
     execute: async () => {
       const now = new Date()
       const text = [
