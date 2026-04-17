@@ -304,7 +304,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
           })
         }
 
-        if (toolCall.name !== 'read_file' && toolCall.name !== 'search_files') {
+        if (toolCall.name !== 'read_file') {
           notifyOtherToolCall(sessionId)
         }
       }

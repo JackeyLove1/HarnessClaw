@@ -2,7 +2,6 @@ import { createBashTool, type BashToolOptions } from './BashTool'
 import {
   createPatchTool,
   createReadFileTool,
-  createSearchFilesTool,
   createWriteFileTool
 } from './FileSystemTool'
 import { createGetTimeTool } from './get-time'
@@ -18,11 +17,11 @@ import type { Tool, ToolFactory } from './types'
 import { withResultPersistence, DEFAULT_BUDGET, type BudgetConfig } from './budget'
 
 /**
- * Safe defaults for the chat runtime: time + read-only file inspection and search.
+ * Safe defaults for the chat runtime: time + read-only file inspection.
  * (No `write_file` / `patch` — add those via `createTools` or custom wiring.)
  */
 export function createReadOnlyTools(): Tool[] {
-  return [createGetTimeTool(), createReadFileTool(), createSearchFilesTool()].sort(
+  return [createGetTimeTool(), createReadFileTool()].sort(
     (a, b) => (b.priority ?? DEFAULT_PRIORITY) - (a.priority ?? DEFAULT_PRIORITY)
   )
 }
@@ -31,8 +30,7 @@ const toolFactories: ToolFactory[] = [
   createGetTimeTool,
   createReadFileTool,
   createWriteFileTool,
-  createPatchTool,
-  createSearchFilesTool
+  createPatchTool
 ]
 
 export type PlatformShellToolOptions = ShellPermissionOptions & {
