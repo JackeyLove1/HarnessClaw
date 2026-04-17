@@ -218,6 +218,11 @@ export function createReadFileTool(): Tool {
     name: 'read_file',
     label: 'Read file',
     priority: getToolPriority('read_file'),
+    idempotent: true,
+    faultTolerance: {
+      maxRetries: 2,
+      timeoutMs: 10_000
+    },
     description:
       'Read a text file with line numbers and pagination. Format: LINE_NUM|CONTENT. ' +
       'Use offset (1-based) and limit for large files. Reads over the character budget are rejected.',

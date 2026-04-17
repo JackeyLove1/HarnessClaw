@@ -60,6 +60,8 @@ export type ToolCalledEvent = ChatEventBase & {
   argsSummary: string
 }
 
+export type ToolValidationStatus = 'skipped' | 'passed' | 'failed_schema' | 'failed_semantic'
+
 export type ToolCompletedEvent = ChatEventBase & {
   type: 'tool.completed'
   assistantMessageId: string
@@ -75,6 +77,15 @@ export type ToolCompletedEvent = ChatEventBase & {
   roundCacheCreationTokens: number
   roundCacheReadTokens: number
   roundToolCallCount: number
+  errorCode?: string
+  errorType?: string
+  failureStage?: string
+  validationStatus?: ToolValidationStatus
+  attemptCount?: number
+  retryCount?: number
+  selfHealCount?: number
+  fallbackUsed?: boolean
+  fallbackStrategy?: string
 }
 
 export type AssistantApiUsage = {

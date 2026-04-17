@@ -12,6 +12,11 @@ export function createGetTimeTool(): Tool {
     name: 'get_time',
     label: 'Current Time',
     description: 'Return the current local time, timezone, and ISO timestamp.',
+    idempotent: true,
+    faultTolerance: {
+      maxRetries: 1,
+      timeoutMs: 3_000
+    },
     inputSchema: getTimeInputSchema,
     outputSchema: getTimeOutputSchema,
     priority: getToolPriority('get_time'),

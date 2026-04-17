@@ -267,8 +267,8 @@ export const TokenUsageSection = () => {
         <div>
           <h2 className="text-[26px] font-semibold text-[var(--ink-main)]">Usage Analytics</h2>
           <p className="mt-2 text-[14px] text-[var(--ink-faint)]">
-            Inspect token consumption, tool activity, and skill usage records from the local
-            SQLite store.
+            Inspect token consumption, tool activity, and skill usage records from the local SQLite
+            store.
           </p>
         </div>
         <button
@@ -506,6 +506,8 @@ export const TokenUsageSection = () => {
                 <th className="px-3 py-2 font-medium">Tool</th>
                 <th className="px-3 py-2 font-medium">Phase</th>
                 <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Fault</th>
+                <th className="px-3 py-2 font-medium">Attempts</th>
                 <th className="px-3 py-2 font-medium">Duration</th>
               </tr>
             </thead>
@@ -522,13 +524,41 @@ export const TokenUsageSection = () => {
                     <td className="px-3 py-2">{toolPhaseLabel[record.phase]}</td>
                     <td className="px-3 py-2">{toolStatusLabel[record.status]}</td>
                     <td className="px-3 py-2">
+                      {record.errorCode ? (
+                        <div>
+                          <div className="font-mono text-[11px] text-[var(--ink-main)]">
+                            {record.errorCode}
+                          </div>
+                          <div className="text-[11px] text-[var(--ink-faint)]">
+                            {record.fallbackUsed
+                              ? `fallback: ${record.fallbackStrategy || 'applied'}`
+                              : record.failureStage || '--'}
+                          </div>
+                        </div>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {record.attemptCount != null ? (
+                        <div>
+                          <div>{record.attemptCount}</div>
+                          <div className="text-[11px] text-[var(--ink-faint)]">
+                            retry {record.retryCount ?? 0} / self-heal {record.selfHealCount ?? 0}
+                          </div>
+                        </div>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
                       {record.durationMs != null ? `${record.durationMs}ms` : '--'}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="px-3 py-7 text-center text-[var(--ink-faint)]" colSpan={6}>
+                  <td className="px-3 py-7 text-center text-[var(--ink-faint)]" colSpan={8}>
                     No tool call records yet.
                   </td>
                 </tr>
@@ -592,9 +622,7 @@ export const TokenUsageSection = () => {
               currentPage={safeSkillStatsPage}
               totalPages={skillStatsTotalPages}
               onPrevious={() => setSkillStatsPage((page) => Math.max(1, page - 1))}
-              onNext={() => setSkillStatsPage((page) =>
-                Math.min(skillStatsTotalPages, page + 1)
-              )}
+              onNext={() => setSkillStatsPage((page) => Math.min(skillStatsTotalPages, page + 1))}
             />
           ) : null}
         </div>

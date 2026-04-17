@@ -157,6 +157,15 @@ type ToolUsageRecordInput = {
   roundCacheCreationTokens?: number
   roundCacheReadTokens?: number
   roundToolCallCount?: number
+  errorCode?: string
+  errorType?: string
+  failureStage?: string
+  validationStatus?: 'skipped' | 'passed' | 'failed_schema' | 'failed_semantic'
+  attemptCount?: number
+  retryCount?: number
+  selfHealCount?: number
+  fallbackUsed?: boolean
+  fallbackStrategy?: string
   timestamp?: number
 }
 
@@ -210,10 +219,7 @@ const rowToToolStatsRecord = (row: ToolStatsRow): ToolStatsRecord => {
     totalCacheCreationTokens,
     totalCacheReadTokens,
     totalTokens:
-      totalInputTokens +
-      totalOutputTokens +
-      totalCacheCreationTokens +
-      totalCacheReadTokens,
+      totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens,
     lastUsedAt: row.lastUsedAt
   }
 }
@@ -484,6 +490,15 @@ export class ChatSessionStore {
           roundCacheCreationTokens,
           roundCacheReadTokens,
           roundToolCallCount,
+          errorCode,
+          errorType,
+          failureStage,
+          validationStatus,
+          attemptCount,
+          retryCount,
+          selfHealCount,
+          fallbackUsed,
+          fallbackStrategy,
           timestamp
         )
         VALUES (
@@ -503,6 +518,15 @@ export class ChatSessionStore {
           @roundCacheCreationTokens,
           @roundCacheReadTokens,
           @roundToolCallCount,
+          @errorCode,
+          @errorType,
+          @failureStage,
+          @validationStatus,
+          @attemptCount,
+          @retryCount,
+          @selfHealCount,
+          @fallbackUsed,
+          @fallbackStrategy,
           @timestamp
         )
         ON CONFLICT(toolCallId) DO UPDATE SET
@@ -520,6 +544,15 @@ export class ChatSessionStore {
           roundCacheCreationTokens = excluded.roundCacheCreationTokens,
           roundCacheReadTokens = excluded.roundCacheReadTokens,
           roundToolCallCount = excluded.roundToolCallCount,
+          errorCode = excluded.errorCode,
+          errorType = excluded.errorType,
+          failureStage = excluded.failureStage,
+          validationStatus = excluded.validationStatus,
+          attemptCount = excluded.attemptCount,
+          retryCount = excluded.retryCount,
+          selfHealCount = excluded.selfHealCount,
+          fallbackUsed = excluded.fallbackUsed,
+          fallbackStrategy = excluded.fallbackStrategy,
           timestamp = excluded.timestamp
         `
       )
@@ -540,6 +573,15 @@ export class ChatSessionStore {
         roundCacheCreationTokens: record.roundCacheCreationTokens ?? 0,
         roundCacheReadTokens: record.roundCacheReadTokens ?? 0,
         roundToolCallCount: Math.max(1, record.roundToolCallCount ?? 1),
+        errorCode: record.errorCode ?? '',
+        errorType: record.errorType ?? '',
+        failureStage: record.failureStage ?? '',
+        validationStatus: record.validationStatus ?? 'skipped',
+        attemptCount: Math.max(1, record.attemptCount ?? 1),
+        retryCount: Math.max(0, record.retryCount ?? 0),
+        selfHealCount: Math.max(0, record.selfHealCount ?? 0),
+        fallbackUsed: record.fallbackUsed ? 1 : 0,
+        fallbackStrategy: record.fallbackStrategy ?? '',
         timestamp: record.timestamp ?? Date.now()
       })
   }
@@ -742,7 +784,16 @@ export class ChatSessionStore {
           status: payload.isError ? 'error' : 'success',
           durationMs: payload.durationMs,
           argsSummary: '',
-          outputSummary: payload.outputSummary
+          outputSummary: payload.outputSummary,
+          errorCode: payload.errorCode,
+          errorType: payload.errorType,
+          failureStage: payload.failureStage,
+          validationStatus: payload.validationStatus,
+          attemptCount: payload.attemptCount,
+          retryCount: payload.retryCount,
+          selfHealCount: payload.selfHealCount,
+          fallbackUsed: payload.fallbackUsed,
+          fallbackStrategy: payload.fallbackStrategy
         } satisfies ToolCallUsageRecord
       })
       .filter(Boolean)

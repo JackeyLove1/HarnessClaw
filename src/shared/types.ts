@@ -79,6 +79,15 @@ export interface ToolCallUsageRecord {
   durationMs: number | null
   argsSummary: string
   outputSummary: string
+  errorCode?: string
+  errorType?: string
+  failureStage?: string
+  validationStatus?: 'skipped' | 'passed' | 'failed_schema' | 'failed_semantic'
+  attemptCount?: number
+  retryCount?: number
+  selfHealCount?: number
+  fallbackUsed?: boolean
+  fallbackStrategy?: string
 }
 
 export interface ToolStatsRecord {

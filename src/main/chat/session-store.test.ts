@@ -207,6 +207,47 @@ describe('ChatSessionStore', () => {
     expect(records[0]?.skillId).toBe('powerpoint')
   })
 
+  it('replays structured tool fault fields from persisted tool events', async () => {
+    const store = createStore()
+    const session = await store.createSession('session-tool-events')
+
+    await store.appendEvent(session.id, {
+      type: 'tool.completed',
+      eventId: 'tool-completed-1',
+      sessionId: session.id,
+      timestamp: 2_000,
+      assistantMessageId: 'assistant-1',
+      groupId: 'group-1',
+      requestRound: 1,
+      toolCallId: 'tool-call-1',
+      toolName: 'read_file',
+      outputSummary: 'read_file failed [TOOL_TIMEOUT]',
+      durationMs: 120,
+      isError: true,
+      roundInputTokens: 10,
+      roundOutputTokens: 4,
+      roundCacheCreationTokens: 0,
+      roundCacheReadTokens: 0,
+      roundToolCallCount: 1,
+      errorCode: 'TOOL_TIMEOUT',
+      errorType: 'transient',
+      failureStage: 'timeout',
+      validationStatus: 'skipped',
+      attemptCount: 3,
+      retryCount: 2,
+      selfHealCount: 0,
+      fallbackUsed: false
+    })
+
+    const records = await store.listToolCallRecords(10)
+
+    expect(records).toHaveLength(1)
+    expect(records[0]?.errorCode).toBe('TOOL_TIMEOUT')
+    expect(records[0]?.failureStage).toBe('timeout')
+    expect(records[0]?.attemptCount).toBe(3)
+    expect(records[0]?.retryCount).toBe(2)
+  })
+
   it('sorts sessions and keeps only the latest ten for the sidebar selector', () => {
     const sessions = Array.from({ length: 14 }, (_, index) => ({
       id: String(index),

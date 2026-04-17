@@ -292,6 +292,22 @@ export function createShellTool(options: ShellToolOptions): Tool {
     label: options.label,
     description: options.description,
     priority: getToolPriority(options.name),
+    faultTolerance: {
+      maxRetries: 0,
+      resolveTimeoutMs: (params) => {
+        const value = params.timeout_ms
+        if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+          return Math.floor(value)
+        }
+        if (typeof value === 'string' && value.trim()) {
+          const parsed = Number(value)
+          if (Number.isFinite(parsed) && parsed > 0) {
+            return Math.floor(parsed)
+          }
+        }
+        return DEFAULT_TIMEOUT_MS
+      }
+    },
     inputSchema: shellToolInputSchema,
     outputSchema: shellToolOutputSchema,
     execute: async (toolCallId, params) => {

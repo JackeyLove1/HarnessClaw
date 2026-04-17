@@ -229,6 +229,15 @@ export class ChatSupervisor {
             roundCacheCreationTokens: event.roundCacheCreationTokens,
             roundCacheReadTokens: event.roundCacheReadTokens,
             roundToolCallCount: event.roundToolCallCount,
+            errorCode: event.errorCode,
+            errorType: event.errorType,
+            failureStage: event.failureStage,
+            validationStatus: event.validationStatus,
+            attemptCount: event.attemptCount,
+            retryCount: event.retryCount,
+            selfHealCount: event.selfHealCount,
+            fallbackUsed: event.fallbackUsed,
+            fallbackStrategy: event.fallbackStrategy,
             timestamp: event.timestamp
           })
           toolArgsByCallId.delete(event.toolCallId)

@@ -1,5 +1,6 @@
 import { z, type ZodTypeAny } from 'zod'
 
+import { ToolExecutionError } from './fault-tolerance'
 import type { Tool, ToolExecuteResult, ToolInputSchema } from './types'
 
 export type LazyToolSchema<TSchema extends ZodTypeAny = ZodTypeAny> = () => TSchema
@@ -38,8 +39,13 @@ type ToolDefinition<
   label: string
   description: string
   priority?: number
+  idempotent?: boolean
   inputSchema: TInputSchema
   outputSchema: TOutputSchema
+  faultTolerance?: Tool['faultTolerance']
+  validateResult?: Tool['validateResult']
+  selfHeal?: Tool['selfHeal']
+  fallback?: Tool['fallback']
   execute: (toolCallId: string, params: InferLazySchema<TInputSchema>) => Promise<ToolExecuteResult>
 }
 
@@ -76,22 +82,35 @@ export function defineTool<
     label: definition.label,
     description: definition.description,
     priority: definition.priority,
+    idempotent: definition.idempotent,
     inputSchema: toToolInputSchema(inputSchema),
+    faultTolerance: definition.faultTolerance,
+    validateResult: definition.validateResult,
+    selfHeal: definition.selfHeal,
+    fallback: definition.fallback,
     execute: async (toolCallId, params) => {
       const parsedInput = inputSchema.safeParse(params)
       if (!parsedInput.success) {
-        throw new Error(
-          `Invalid input for tool "${definition.name}": ${formatZodError(parsedInput.error)}`
-        )
+        throw new ToolExecutionError({
+          code: 'TOOL_BAD_INPUT',
+          type: 'parameter',
+          stage: 'input_validation',
+          retryable: false,
+          message: `Invalid input for tool "${definition.name}": ${formatZodError(parsedInput.error)}`
+        })
       }
 
       const validInput = parsedInput.data as InferLazySchema<TInputSchema>
       const result = await definition.execute(toolCallId, validInput)
       const parsedOutput = outputSchema.safeParse(result)
       if (!parsedOutput.success) {
-        throw new Error(
-          `Invalid output for tool "${definition.name}": ${formatZodError(parsedOutput.error)}`
-        )
+        throw new ToolExecutionError({
+          code: 'TOOL_OUTPUT_INVALID',
+          type: 'result_invalid',
+          stage: 'output_validation',
+          retryable: true,
+          message: `Invalid output for tool "${definition.name}": ${formatZodError(parsedOutput.error)}`
+        })
       }
 
       return parsedOutput.data

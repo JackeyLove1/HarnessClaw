@@ -128,10 +128,20 @@ export type {
 } from './ShellTool'
 export type {
   Tool,
+  ToolErrorCode,
+  ToolErrorType,
   ToolExecuteResult,
+  ToolExecutionContext,
+  ToolFallbackResult,
+  ToolFailureStage,
   ToolFactory,
+  ToolFault,
+  ToolFaultTolerancePolicy,
   ToolInputSchema,
-  ToolResultTextBlock
+  ToolResultTextBlock,
+  ToolSelfHealResult,
+  ToolValidationResult,
+  ToolValidationStatus
 } from './types'
 export type { BudgetConfig, PersistedResult } from './budget'
 export {
@@ -141,3 +151,8 @@ export {
   resolveThreshold,
   withResultPersistence
 } from './budget'
+export {
+  ToolExecutionError,
+  executeToolWithFaultTolerance,
+  type ToolExecutionOutcome
+} from './fault-tolerance'

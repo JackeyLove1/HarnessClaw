@@ -276,4 +276,100 @@ describe('AnthropicChatRuntime', () => {
     expect(skillRecords[0]?.toolCallId).toBe('tool_skill_1')
     expect(events.at(-1)?.type).toBe('assistant.completed')
   })
+
+  it('retries idempotent tools on transient faults and reports structured fault metadata', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
+    process.env.NOTEMARK_MODEL = 'claude-sonnet-4-5'
+
+    let streamRound = 0
+    let executeAttempts = 0
+
+    messagesCreateMock.mockImplementation(async (params: { stream?: boolean }) => {
+      if (!params.stream) {
+        return {
+          content: [{ type: 'text', text: 'pong' }]
+        }
+      }
+
+      streamRound += 1
+      if (streamRound === 1) {
+        return toStream([
+          {
+            type: 'content_block_start',
+            index: 0,
+            content_block: {
+              type: 'tool_use',
+              id: 'tool_retry_1',
+              name: 'retry_tool',
+              input: {}
+            }
+          }
+        ])
+      }
+
+      return toStream([
+        {
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'text', text: '' }
+        },
+        {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'text_delta', text: 'Recovered' }
+        }
+      ])
+    })
+
+    const retryTool: Tool = {
+      name: 'retry_tool',
+      label: 'Retry Tool',
+      description: 'Flaky but retryable tool',
+      inputSchema: { type: 'object' },
+      idempotent: true,
+      faultTolerance: {
+        maxRetries: 2,
+        baseDelayMs: 0,
+        maxJitterMs: 0,
+        timeoutMs: 1_000
+      },
+      execute: async () => {
+        executeAttempts += 1
+        if (executeAttempts < 3) {
+          throw new Error('network timeout while reaching upstream service')
+        }
+
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ ok: true, value: 'done' }) }],
+          details: { summary: 'done' }
+        }
+      }
+    }
+
+    const runtime = new AnthropicChatRuntime({
+      toolsFactory: () => [retryTool]
+    })
+
+    const events: ChatEvent[] = []
+    for await (const event of runtime.runTurn({
+      sessionId: 's_retry',
+      userText: 'retry this tool',
+      history: []
+    })) {
+      events.push(event)
+    }
+
+    const toolCompleted = events.find(
+      (event): event is Extract<ChatEvent, { type: 'tool.completed' }> =>
+        event.type === 'tool.completed'
+    )
+
+    expect(executeAttempts).toBe(3)
+    expect(toolCompleted).toBeDefined()
+    expect(toolCompleted?.isError).toBe(false)
+    expect(toolCompleted?.attemptCount).toBe(3)
+    expect(toolCompleted?.retryCount).toBe(2)
+    expect(toolCompleted?.validationStatus).toBe('skipped')
+  })
 })

@@ -1,5 +1,19 @@
 import type Database from 'better-sqlite3'
 
+const ensureColumn = (
+  db: Database.Database,
+  tableName: string,
+  columnName: string,
+  definition: string
+): void => {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>
+  if (columns.some((column) => column.name === columnName)) {
+    return
+  }
+
+  db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition};`)
+}
+
 export const ensureChatSchema = (db: Database.Database): void => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS chat_sessions (
@@ -80,6 +94,16 @@ export const ensureChatSchema = (db: Database.Database): void => {
     CREATE INDEX IF NOT EXISTS idx_tool_usage_name_timestamp ON tool_usage_records(toolName, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_tool_usage_session_timestamp ON tool_usage_records(sessionId, timestamp DESC);
   `)
+
+  ensureColumn(db, 'tool_usage_records', 'errorCode', "TEXT NOT NULL DEFAULT ''")
+  ensureColumn(db, 'tool_usage_records', 'errorType', "TEXT NOT NULL DEFAULT ''")
+  ensureColumn(db, 'tool_usage_records', 'failureStage', "TEXT NOT NULL DEFAULT ''")
+  ensureColumn(db, 'tool_usage_records', 'validationStatus', "TEXT NOT NULL DEFAULT 'skipped'")
+  ensureColumn(db, 'tool_usage_records', 'attemptCount', 'INTEGER NOT NULL DEFAULT 1')
+  ensureColumn(db, 'tool_usage_records', 'retryCount', 'INTEGER NOT NULL DEFAULT 0')
+  ensureColumn(db, 'tool_usage_records', 'selfHealCount', 'INTEGER NOT NULL DEFAULT 0')
+  ensureColumn(db, 'tool_usage_records', 'fallbackUsed', 'INTEGER NOT NULL DEFAULT 0')
+  ensureColumn(db, 'tool_usage_records', 'fallbackStrategy', "TEXT NOT NULL DEFAULT ''")
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS skill_usage_records (

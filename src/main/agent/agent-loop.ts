@@ -18,6 +18,7 @@ import {
   summarizeValue,
   toAnthropicMessages
 } from './text-utils'
+import { executeToolWithFaultTolerance } from './tools/fault-tolerance'
 import { createTools, notifyOtherToolCall, type Tool } from './tools'
 import type { ChatRuntime, ConnectionTestResult, GenerateTitleArgs, RunTurnArgs } from './types'
 
@@ -61,7 +62,9 @@ const formatInstalledSkillsSection = (installedSkills: readonly InstalledSkill[]
   return ['Installed skills:', ...lines].join('\n')
 }
 
-const buildSystemPrompt = (installedSkills: readonly InstalledSkill[]): string => `You are DeepClaw, a concise desktop chat assistant.
+const buildSystemPrompt = (
+  installedSkills: readonly InstalledSkill[]
+): string => `You are DeepClaw, a concise desktop chat assistant.
 
 Rules:
 - Prefer direct answers.
@@ -439,15 +442,25 @@ export class AnthropicChatRuntime implements ChatRuntime {
         }
 
         try {
-          const result = await tool.execute(toolCall.id, { ...toolCall.input, task_id: sessionId })
+          const outcome = await executeToolWithFaultTolerance(tool, toolCall.id, {
+            ...toolCall.input,
+            task_id: sessionId
+          })
+          const result = outcome.result
           const outputText = result.content.map((item) => item.text).join('\n')
           const outputSummary = result.details.summary || outputText || ''
-          const skillReadPath = toolCall.name === 'read_file' ? getReadFilePath(toolCall.input) : null
+          const skillReadPath =
+            toolCall.name === 'read_file' ? getReadFilePath(toolCall.input) : null
           const skill = skillReadPath
             ? findInstalledSkillByFilePath(skillReadPath, this.installedSkills)
             : null
 
-          if (skill && !usedSkillIds.has(skill.skillId) && !isToolExecutionError(outputText)) {
+          if (
+            skill &&
+            !usedSkillIds.has(skill.skillId) &&
+            !outcome.isError &&
+            !isToolExecutionError(outputText)
+          ) {
             try {
               this.usageStore.appendSkillUsageRecord({
                 sessionId,
@@ -474,17 +487,27 @@ export class AnthropicChatRuntime implements ChatRuntime {
             toolName: toolCall.name,
             outputSummary,
             durationMs: Date.now() - started,
-            isError: false,
+            isError: outcome.isError,
             roundInputTokens: usageForRound.inputTokens,
             roundOutputTokens: usageForRound.outputTokens,
             roundCacheCreationTokens: usageForRound.cacheCreationTokens,
             roundCacheReadTokens: usageForRound.cacheReadTokens,
-            roundToolCallCount: Math.max(1, toolCalls.length)
+            roundToolCallCount: Math.max(1, toolCalls.length),
+            errorCode: outcome.fault?.code,
+            errorType: outcome.fault?.type,
+            failureStage: outcome.fault?.stage,
+            validationStatus: outcome.validationStatus,
+            attemptCount: outcome.attemptCount,
+            retryCount: outcome.retryCount,
+            selfHealCount: outcome.selfHealCount,
+            fallbackUsed: outcome.fallbackUsed,
+            fallbackStrategy: outcome.fallbackStrategy
           })
           toolResultContent.push({
             type: 'tool_result',
             tool_use_id: toolCall.id,
-            content: outputSummary
+            content: outputText || outputSummary,
+            is_error: outcome.isError || undefined
           })
         } catch (error) {
           const outputSummary = error instanceof Error ? error.message : String(error)
