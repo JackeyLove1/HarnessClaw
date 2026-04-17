@@ -7,6 +7,7 @@ import type {
   GetAnthropicSettings,
   GetNotes,
   GetUsageOverview,
+  ListSkillUsageRecords,
   ListToolCallRecords,
   ListToolStats,
   ListUsageRecords,
@@ -55,6 +56,7 @@ declare global {
       listUsageRecords: ListUsageRecords
       listToolCallRecords: ListToolCallRecords
       listToolStats: ListToolStats
+      listSkillUsageRecords: ListSkillUsageRecords
     }
   }
 }

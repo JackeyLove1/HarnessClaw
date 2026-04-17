@@ -6,6 +6,7 @@ import type {
   GetAnthropicSettings,
   GetUsageOverview,
   GetNotes,
+  ListSkillUsageRecords,
   ListToolCallRecords,
   ListToolStats,
   ListUsageRecords,
@@ -286,6 +287,12 @@ function registerSettingsIpc(): void {
       throw new Error('Chat supervisor is not initialized.')
     }
     return chatSupervisor.listToolStats(...args)
+  })
+  ipcMain.handle('settings:listSkillUsageRecords', (_, ...args: Parameters<ListSkillUsageRecords>) => {
+    if (!chatSupervisor) {
+      throw new Error('Chat supervisor is not initialized.')
+    }
+    return chatSupervisor.listSkillUsageRecords(...args)
   })
 }
 

@@ -99,6 +99,19 @@ export interface ToolStatsRecord {
   lastUsedAt: number | null
 }
 
+export interface SkillUsageRecord {
+  id: string
+  sessionId: string | null
+  sessionTitle: string | null
+  assistantMessageId: string
+  requestRound: number
+  toolCallId: string
+  skillId: string
+  skillName: string
+  skillFilePath: string
+  timestamp: number
+}
+
 export type GetAnthropicSettings = () => Promise<AnthropicSettings>
 export type SaveAnthropicSettings = (settings: AnthropicSettings) => Promise<AnthropicSettings>
 export type TestAnthropicConnection = (
@@ -108,3 +121,4 @@ export type GetUsageOverview = () => Promise<UsageOverview>
 export type ListUsageRecords = (limit?: number) => Promise<UsageRecord[]>
 export type ListToolCallRecords = (limit?: number) => Promise<ToolCallUsageRecord[]>
 export type ListToolStats = (limit?: number) => Promise<ToolStatsRecord[]>
+export type ListSkillUsageRecords = (limit?: number) => Promise<SkillUsageRecord[]>

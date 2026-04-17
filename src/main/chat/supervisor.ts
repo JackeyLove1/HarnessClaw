@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { BrowserWindow } from 'electron'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
-import type { ToolCallUsageRecord, ToolStatsRecord, UsageOverview, UsageRecord } from '@shared/types'
+import type {
+  SkillUsageRecord,
+  ToolCallUsageRecord,
+  ToolStatsRecord,
+  UsageOverview,
+  UsageRecord
+} from '@shared/types'
 import {
   ChatSessionStore,
   DEFAULT_SESSION_TITLE,
@@ -84,6 +90,10 @@ export class ChatSupervisor {
 
   async listToolStats(limit?: number): Promise<ToolStatsRecord[]> {
     return this.store.listToolStats(limit)
+  }
+
+  async listSkillUsageRecords(limit?: number): Promise<SkillUsageRecord[]> {
+    return this.store.listSkillUsageRecords(limit)
   }
 
   async searchSessions(query: string): Promise<SessionMeta[]> {

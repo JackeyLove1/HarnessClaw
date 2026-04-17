@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
 import type {
+  SkillUsageRecord,
   ToolCallUsageRecord,
   ToolStatsRecord,
   UsageOverview,
@@ -168,18 +169,6 @@ type SkillUsageRecordInput = {
   skillName: string
   skillFilePath: string
   timestamp?: number
-}
-
-export interface SkillUsageRecord {
-  id: string
-  sessionId: string | null
-  assistantMessageId: string
-  requestRound: number
-  toolCallId: string
-  skillId: string
-  skillName: string
-  skillFilePath: string
-  timestamp: number
 }
 
 type ToolStatsRow = {
@@ -608,17 +597,19 @@ export class ChatSessionStore {
       .prepare(
         `
         SELECT
-          id,
-          sessionId,
-          assistantMessageId,
-          requestRound,
-          toolCallId,
-          skillId,
-          skillName,
-          skillFilePath,
-          timestamp
-        FROM skill_usage_records
-        ORDER BY timestamp DESC
+          records.id as id,
+          records.sessionId as sessionId,
+          sessions.title as sessionTitle,
+          records.assistantMessageId as assistantMessageId,
+          records.requestRound as requestRound,
+          records.toolCallId as toolCallId,
+          records.skillId as skillId,
+          records.skillName as skillName,
+          records.skillFilePath as skillFilePath,
+          records.timestamp as timestamp
+        FROM skill_usage_records records
+        LEFT JOIN chat_sessions sessions ON sessions.id = records.sessionId
+        ORDER BY records.timestamp DESC
         LIMIT ?
         `
       )

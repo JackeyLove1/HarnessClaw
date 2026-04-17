@@ -7,6 +7,7 @@ import type {
   DeleteNote,
   GetAnthropicSettings,
   GetNotes,
+  ListSkillUsageRecords,
   GetUsageOverview,
   ListToolCallRecords,
   ListToolStats,
@@ -103,7 +104,12 @@ try {
     listToolCallRecords: (...args: Parameters<ListToolCallRecords>) =>
       invoke<Awaited<ReturnType<ListToolCallRecords>>>('settings:listToolCallRecords', ...args),
     listToolStats: (...args: Parameters<ListToolStats>) =>
-      invoke<Awaited<ReturnType<ListToolStats>>>('settings:listToolStats', ...args)
+      invoke<Awaited<ReturnType<ListToolStats>>>('settings:listToolStats', ...args),
+    listSkillUsageRecords: (...args: Parameters<ListSkillUsageRecords>) =>
+      invoke<Awaited<ReturnType<ListSkillUsageRecords>>>(
+        'settings:listSkillUsageRecords',
+        ...args
+      )
   })
 } catch (error) {
   console.error(error)
