@@ -2,7 +2,10 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 
+import { z } from 'zod'
+
 import { getToolPriority } from '../priorities'
+import { defineTool, lazySchema, toolExecuteResultSchema } from '../schema'
 import type { Tool } from '../types'
 import {
   checkSensitivePath,
@@ -10,12 +13,20 @@ import {
   isExpectedWriteError,
   jsonResult,
   readTracker,
-  strParam,
-  taskIdFromParams,
   toolError,
   toolResultFromJson,
   withReadTracker
 } from './utils'
+
+const writeFileInputSchema = lazySchema(() =>
+  z.strictObject({
+    path: z.string(),
+    content: z.string(),
+    task_id: z.string().optional()
+  })
+)
+
+const writeFileOutputSchema = lazySchema(() => toolExecuteResultSchema)
 
 export async function updateReadTimestamp(filepath: string, taskId: string): Promise<void> {
   try {
@@ -42,7 +53,9 @@ export async function checkFileStaleness(filepath: string, taskId: string): Prom
     return null
   }
 
-  const readMtime = await withReadTracker(async () => readTracker.get(taskId)?.readTimestamps.get(resolved) ?? null)
+  const readMtime = await withReadTracker(
+    async () => readTracker.get(taskId)?.readTimestamps.get(resolved) ?? null
+  )
   if (readMtime === null) {
     return null
   }
@@ -62,7 +75,11 @@ export async function checkFileStaleness(filepath: string, taskId: string): Prom
   return null
 }
 
-async function writeFileToolImpl(filepath: string, content: string, taskId: string): Promise<string> {
+async function writeFileToolImpl(
+  filepath: string,
+  content: string,
+  taskId: string
+): Promise<string> {
   const sensitiveError = checkSensitivePath(filepath)
   if (sensitiveError) {
     return toolError(sensitiveError)
@@ -97,26 +114,18 @@ async function writeFileToolImpl(filepath: string, content: string, taskId: stri
 }
 
 export function createWriteFileTool(): Tool {
-  return {
+  return defineTool({
     name: 'write_file',
     label: 'Write file',
     priority: getToolPriority('write_file'),
     description:
       'Write content to a file, replacing any existing file. Parent directories are created. ' +
       'Use patch for targeted edits.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: { type: 'string' },
-        content: { type: 'string' },
-        task_id: { type: 'string' }
-      },
-      required: ['path', 'content'],
-      additionalProperties: false
-    },
+    inputSchema: writeFileInputSchema,
+    outputSchema: writeFileOutputSchema,
     execute: async (_id, params) => {
-      const text = await writeFileToolImpl(strParam(params.path), strParam(params.content), taskIdFromParams(params))
+      const text = await writeFileToolImpl(params.path, params.content, params.task_id || 'default')
       return toolResultFromJson(text)
     }
-  }
+  })
 }

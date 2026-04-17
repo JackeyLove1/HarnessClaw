@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { createBashTool } from '../BashTool'
+import { createGetTimeTool } from '../get-time'
 import { createPowerShellTool } from '../PowerShellTool'
 import { createPlatformShellTool, createReadOnlyTools, createTools } from '..'
 
-const parseText = (toolResult: Awaited<ReturnType<ReturnType<typeof createBashTool>['execute']>>) => {
+const parseText = (
+  toolResult: Awaited<ReturnType<ReturnType<typeof createBashTool>['execute']>>
+) => {
   return JSON.parse(toolResult.content[0].text) as Record<string, unknown>
 }
 
@@ -107,5 +110,26 @@ describe('shell tools', () => {
 
     expect(payload.blocked).toBe(true)
     expect(payload.reason).toBeTypeOf('string')
+  })
+
+  it('validates shell tool input with zod v4 before execution', async () => {
+    const tool = createBashTool()
+
+    await expect(
+      tool.execute('tool_6', {
+        command: '   ',
+        timeout_ms: 10
+      })
+    ).rejects.toThrow(/Invalid input for tool "bash"/)
+  })
+
+  it('validates no-arg tools with strict object schemas', async () => {
+    const tool = createGetTimeTool()
+
+    await expect(
+      tool.execute('tool_7', {
+        unexpected: true
+      })
+    ).rejects.toThrow(/Invalid input for tool "get_time"/)
   })
 })

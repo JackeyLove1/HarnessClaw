@@ -4,12 +4,14 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { z } from 'zod'
+
 import { getToolPriority } from '../priorities'
+import { defineTool, lazySchema, toolExecuteResultSchema } from '../schema'
 import type { Tool } from '../types'
 import { createReadFileTool } from './read'
 import { checkFileStaleness, createWriteFileTool, updateReadTimestamp } from './write'
 import {
-  boolParam,
   checkSensitivePath,
   clearFileOpsCache,
   clearReadTracker,
@@ -18,18 +20,55 @@ import {
   getReadFilesSummary,
   jsonResult,
   notifyOtherToolCall,
-  numParam,
   redactSensitiveText,
   registerInternalBlockedDirectories,
   resetFileDedup,
-  strParam,
-  taskIdFromParams,
   toolError,
   toolResultFromJson,
   withReadTracker
 } from './utils'
 
 const execFileAsync = promisify(execFile)
+
+const patchInputSchema = lazySchema(() =>
+  z.strictObject({
+    mode: z.enum(['replace', 'patch']).optional(),
+    path: z.string().optional(),
+    old_string: z.string().optional(),
+    new_string: z.string().optional(),
+    replace_all: z.boolean().optional(),
+    patch: z.string().optional(),
+    task_id: z.string().optional()
+  })
+)
+
+const searchFilesInputSchema = lazySchema(() =>
+  z.strictObject({
+    pattern: z.string(),
+    target: z.enum(['content', 'files', 'grep', 'find']).optional(),
+    path: z.string().optional(),
+    file_glob: z.string().optional(),
+    limit: z.coerce
+      .number()
+      .transform((value) => Math.floor(value))
+      .pipe(z.number().int().min(1))
+      .optional(),
+    offset: z.coerce
+      .number()
+      .transform((value) => Math.floor(value))
+      .pipe(z.number().int().min(0))
+      .optional(),
+    output_mode: z.enum(['content', 'files_only', 'count']).optional(),
+    context: z.coerce
+      .number()
+      .transform((value) => Math.floor(value))
+      .pipe(z.number().int().min(0))
+      .optional(),
+    task_id: z.string().optional()
+  })
+)
+
+const fileToolOutputSchema = lazySchema(() => toolExecuteResultSchema)
 
 function patchReplace(
   fileContent: string,
@@ -56,7 +95,9 @@ function patchReplace(
     return { error: `old_string matched ${count} times; require unique match or replace_all=true` }
   }
 
-  const next = replaceAll ? fileContent.split(oldString).join(newString) : fileContent.replace(oldString, newString)
+  const next = replaceAll
+    ? fileContent.split(oldString).join(newString)
+    : fileContent.replace(oldString, newString)
   return { next, replacements: replaceAll ? count : 1 }
 }
 
@@ -120,7 +161,9 @@ async function applyV4APatch(patch: string): Promise<{ error: string } | Record<
   }
 
   const inner = patch.slice(begin, end)
-  const fileBlocks = inner.split(/(?=^\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*)/gim).filter(Boolean)
+  const fileBlocks = inner
+    .split(/(?=^\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*)/gim)
+    .filter(Boolean)
   const edited: string[] = []
 
   for (const block of fileBlocks) {
@@ -135,7 +178,9 @@ async function applyV4APatch(patch: string): Promise<{ error: string } | Record<
         await fsp.unlink(expandUser(filePath))
         edited.push(filePath)
       } catch (error) {
-        return { error: `Delete failed for ${filePath}: ${error instanceof Error ? error.message : String(error)}` }
+        return {
+          error: `Delete failed for ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+        }
       }
       continue
     }
@@ -208,7 +253,8 @@ async function patchToolImpl(
       if ('error' in replaced) {
         let out = jsonResult({ error: replaced.error, path: filepath })
         if (replaced.error.includes('Could not find')) {
-          out += '\n\n[Hint: old_string not found. Use read_file to verify the current content, or search_files to locate the text.]'
+          out +=
+            '\n\n[Hint: old_string not found. Use read_file to verify the current content, or search_files to locate the text.]'
         }
         return out
       }
@@ -321,7 +367,14 @@ async function searchWithRipgrep(
     }
     matches = [...counts.entries()].map(([matchPath, count]) => ({ path: matchPath, count }))
   } else {
-    const args = ['-n', '-S', '--max-count', String(Math.min(limit + offset + 500, 5000)), pattern, expandedRoot]
+    const args = [
+      '-n',
+      '-S',
+      '--max-count',
+      String(Math.min(limit + offset + 500, 5000)),
+      pattern,
+      expandedRoot
+    ]
     if (fileGlob) {
       args.unshift('--glob', fileGlob)
     }
@@ -381,11 +434,19 @@ async function* walkFiles(dir: string, maxFiles: number): AsyncGenerator<string>
 }
 
 function globToRegExp(glob: string): RegExp {
-  const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
+  const escaped = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
   return new RegExp(`^${escaped}$`, 'i')
 }
 
-async function searchFallbackFiles(pattern: string, root: string, limit: number, offset: number): Promise<SearchMatch[]> {
+async function searchFallbackFiles(
+  pattern: string,
+  root: string,
+  limit: number,
+  offset: number
+): Promise<SearchMatch[]> {
   const re = globToRegExp(pattern)
   const matches: SearchMatch[] = []
 
@@ -482,7 +543,15 @@ async function searchToolImpl(
   taskId: string
 ): Promise<string> {
   try {
-    const searchKey = JSON.stringify(['search', pattern, target, String(searchPath), fileGlob ?? '', limit, offset])
+    const searchKey = JSON.stringify([
+      'search',
+      pattern,
+      target,
+      String(searchPath),
+      fileGlob ?? '',
+      limit,
+      offset
+    ])
     const count = await withReadTracker(async () => {
       const task = getOrCreateTaskData(taskId)
       if (task.lastKey === searchKey) {
@@ -496,8 +565,7 @@ async function searchToolImpl(
 
     if (count >= 4) {
       return jsonResult({
-        error:
-          `BLOCKED: You have run this exact search ${count} times in a row. STOP re-searching and proceed with your task.`,
+        error: `BLOCKED: You have run this exact search ${count} times in a row. STOP re-searching and proceed with your task.`,
         pattern,
         already_searched: count
       })
@@ -514,7 +582,15 @@ async function searchToolImpl(
     } else {
       const useRipgrep = (await hasRipgrep()) && context === 0
       if (useRipgrep) {
-        const result = await searchWithRipgrep(pattern, searchPath, fileGlob, limit, offset, outputMode, context)
+        const result = await searchWithRipgrep(
+          pattern,
+          searchPath,
+          fileGlob,
+          limit,
+          offset,
+          outputMode,
+          context
+        )
         matches = result.matches.map((match) => ({
           ...match,
           content: match.content ? redactSensitiveText(match.content) : match.content
@@ -522,7 +598,14 @@ async function searchToolImpl(
         truncated = result.truncated
         totalApprox = result.totalApprox
       } else {
-        matches = await searchFallbackContent(pattern, searchPath, fileGlob, limit, offset, outputMode)
+        matches = await searchFallbackContent(
+          pattern,
+          searchPath,
+          fileGlob,
+          limit,
+          offset,
+          outputMode
+        )
         matches = matches.map((match) =>
           match.content ? { ...match, content: redactSensitiveText(match.content) } : match
         )
@@ -540,8 +623,7 @@ async function searchToolImpl(
       total_approx: totalApprox
     }
     if (count >= 3) {
-      result._warning =
-        `You have run this exact search ${count} times consecutively. Use the results you already have.`
+      result._warning = `You have run this exact search ${count} times consecutively. Use the results you already have.`
     }
 
     let output = jsonResult(result)
@@ -555,86 +637,59 @@ async function searchToolImpl(
 }
 
 export function createPatchTool(): Tool {
-  return {
+  return defineTool({
     name: 'patch',
     label: 'Patch file',
     priority: getToolPriority('patch'),
     description:
       'Targeted edits: mode "replace" finds a unique old_string, or mode "patch" applies a V4A-style multi-file patch.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        mode: { type: 'string', enum: ['replace', 'patch'], default: 'replace' },
-        path: { type: 'string' },
-        old_string: { type: 'string' },
-        new_string: { type: 'string' },
-        replace_all: { type: 'boolean', default: false },
-        patch: { type: 'string' },
-        task_id: { type: 'string' }
-      },
-      required: ['mode'],
-      additionalProperties: false
-    },
+    inputSchema: patchInputSchema,
+    outputSchema: fileToolOutputSchema,
     execute: async (_id, params) => {
-      const mode = strParam(params.mode, 'replace')
       const text = await patchToolImpl(
-        mode,
-        params.path !== undefined ? strParam(params.path) : undefined,
-        params.old_string !== undefined ? strParam(params.old_string) : undefined,
-        params.new_string !== undefined ? strParam(params.new_string) : undefined,
-        boolParam(params.replace_all, false),
-        params.patch !== undefined ? strParam(params.patch) : undefined,
-        taskIdFromParams(params)
+        params.mode ?? 'replace',
+        params.path,
+        params.old_string,
+        params.new_string,
+        params.replace_all ?? false,
+        params.patch,
+        params.task_id || 'default'
       )
       return toolResultFromJson(text)
     }
-  }
+  })
 }
 
 export function createSearchFilesTool(): Tool {
-  return {
+  return defineTool({
     name: 'search_files',
     label: 'Search files',
     priority: getToolPriority('search_files'),
     description:
       'Search file contents (regex) or list files by glob under a directory. Uses ripgrep when installed.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        pattern: { type: 'string' },
-        target: { type: 'string', enum: ['content', 'files', 'grep', 'find'], default: 'content' },
-        path: { type: 'string', default: '.' },
-        file_glob: { type: 'string' },
-        limit: { type: 'integer', default: 50 },
-        offset: { type: 'integer', default: 0 },
-        output_mode: { type: 'string', enum: ['content', 'files_only', 'count'], default: 'content' },
-        context: { type: 'integer', default: 0 },
-        task_id: { type: 'string' }
-      },
-      required: ['pattern'],
-      additionalProperties: false
-    },
+    inputSchema: searchFilesInputSchema,
+    outputSchema: fileToolOutputSchema,
     execute: async (_id, params) => {
-      const rawTarget = strParam(params.target, 'content')
+      const rawTarget = params.target ?? 'content'
       const targetMap: Record<string, string> = {
         grep: 'content',
         find: 'files'
       }
       const target = targetMap[rawTarget] ?? rawTarget
       const text = await searchToolImpl(
-        strParam(params.pattern),
+        params.pattern,
         target,
-        strParam(params.path, '.'),
-        params.file_glob !== undefined ? strParam(params.file_glob) : undefined,
-        Math.max(1, Math.floor(numParam(params.limit, 50))),
-        Math.max(0, Math.floor(numParam(params.offset, 0))),
-        strParam(params.output_mode, 'content'),
-        Math.max(0, Math.floor(numParam(params.context, 0))),
-        taskIdFromParams(params)
+        params.path ?? '.',
+        params.file_glob,
+        params.limit ?? 50,
+        params.offset ?? 0,
+        params.output_mode ?? 'content',
+        params.context ?? 0,
+        params.task_id || 'default'
       )
       return toolResultFromJson(text)
     }
-  }
+  })
 }
 
 export function createFileSystemTools(): Tool[] {

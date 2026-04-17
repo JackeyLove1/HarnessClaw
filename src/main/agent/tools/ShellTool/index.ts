@@ -1,16 +1,12 @@
 import { execFile } from 'node:child_process'
 import type { ExecFileOptions } from 'node:child_process'
 
+import { z } from 'zod'
+
 import { getToolPriority } from '../priorities'
 import type { Tool, ToolExecuteResult } from '../types'
-import {
-  clampSummary,
-  jsonResult,
-  numParam,
-  redactSensitiveText,
-  strParam,
-  taskIdFromParams
-} from '../FileSystemTool/utils'
+import { defineTool, lazySchema, toolExecuteResultSchema } from '../schema'
+import { clampSummary, jsonResult, redactSensitiveText } from '../FileSystemTool/utils'
 
 const DEFAULT_TIMEOUT_MS = 20_000
 const MAX_TIMEOUT_MS = 300_000
@@ -144,7 +140,9 @@ function summarizeExecution(
   if (output.failedToStart) {
     parts.push('failed to start')
   } else if (output.timedOut) {
-    parts.push(`timed out after execution start${output.exitCode === null ? '' : ` (exit ${output.exitCode})`}`)
+    parts.push(
+      `timed out after execution start${output.exitCode === null ? '' : ` (exit ${output.exitCode})`}`
+    )
   } else {
     parts.push(`exit ${output.exitCode ?? 'null'}`)
   }
@@ -160,25 +158,25 @@ function summarizeExecution(
   return clampSummary(parts.join(' | '), 1200)
 }
 
-function parseEnvOverrides(value: unknown): { env: Record<string, string> } | { error: string } {
-  if (value === undefined) {
-    return { env: {} }
-  }
+const shellToolInputSchema = lazySchema(() =>
+  z.strictObject({
+    command: z.string().trim().min(1).describe('One non-interactive shell command to execute.'),
+    cwd: z.string().optional().describe('Working directory for the command.'),
+    timeout_ms: z.coerce
+      .number()
+      .transform((value) => Math.floor(value))
+      .pipe(z.number().int().min(1_000).max(MAX_TIMEOUT_MS))
+      .optional()
+      .describe(`Execution timeout in milliseconds (default ${DEFAULT_TIMEOUT_MS}).`),
+    env_overrides: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional environment variables merged on top of the current process env.'),
+    task_id: z.string().optional()
+  })
+)
 
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { error: 'env_overrides must be an object with string values' }
-  }
-
-  const env: Record<string, string> = {}
-  for (const [key, rawValue] of Object.entries(value)) {
-    if (typeof rawValue !== 'string') {
-      return { error: `env_overrides.${key} must be a string` }
-    }
-    env[key] = rawValue
-  }
-
-  return { env }
-}
+const shellToolOutputSchema = lazySchema(() => toolExecuteResultSchema)
 
 async function defaultRunCommand(request: ShellExecutionRequest): Promise<ShellExecutionOutput> {
   return await new Promise((resolve) => {
@@ -216,7 +214,11 @@ async function defaultRunCommand(request: ShellExecutionRequest): Promise<ShellE
   })
 }
 
-function makeToolResult(text: string, summary: string, details: Record<string, unknown> = {}): ToolExecuteResult {
+function makeToolResult(
+  text: string,
+  summary: string,
+  details: Record<string, unknown> = {}
+): ToolExecuteResult {
   return {
     content: [{ type: 'text', text }],
     details: {
@@ -280,60 +282,21 @@ export function evaluateShellPermission(
 export function createShellTool(options: ShellToolOptions): Tool {
   const runCommand = options.runCommand ?? defaultRunCommand
 
-  return {
+  return defineTool({
     name: options.name,
     label: options.label,
     description: options.description,
     priority: getToolPriority(options.name),
-    inputSchema: {
-      type: 'object',
-      properties: {
-        command: { type: 'string', description: 'One non-interactive shell command to execute.' },
-        cwd: { type: 'string', description: 'Working directory for the command.', default: process.cwd() },
-        timeout_ms: {
-          type: 'integer',
-          description: `Execution timeout in milliseconds (default ${DEFAULT_TIMEOUT_MS}).`,
-          default: DEFAULT_TIMEOUT_MS,
-          minimum: 1_000,
-          maximum: MAX_TIMEOUT_MS
-        },
-        env_overrides: {
-          type: 'object',
-          description: 'Optional environment variables merged on top of the current process env.',
-          additionalProperties: { type: 'string' }
-        },
-        task_id: { type: 'string' }
-      },
-      required: ['command'],
-      additionalProperties: false
-    },
+    inputSchema: shellToolInputSchema,
+    outputSchema: shellToolOutputSchema,
     execute: async (toolCallId, params) => {
-      const command = strParam(params.command).trim()
-      if (!command) {
-        return makeToolResult(toolErrorJson('command is required'), `${options.name} blocked: command is required`, {
-          ok: false,
-          blocked: true
-        })
-      }
-
-      const envOverrides = parseEnvOverrides(params.env_overrides)
-      if ('error' in envOverrides) {
-        return makeToolResult(
-          toolErrorJson(envOverrides.error),
-          `${options.name} blocked: ${envOverrides.error}`,
-          {
-            ok: false,
-            blocked: true
-          }
-        )
-      }
-
-      const cwd = strParam(params.cwd, process.cwd()) || process.cwd()
-      const timeoutMs = Math.min(Math.max(1_000, Math.floor(numParam(params.timeout_ms, DEFAULT_TIMEOUT_MS))), MAX_TIMEOUT_MS)
-      const taskId = taskIdFromParams(params)
+      const command = params.command.trim()
+      const cwd = params.cwd?.trim() || process.cwd()
+      const timeoutMs = params.timeout_ms ?? DEFAULT_TIMEOUT_MS
+      const taskId = params.task_id || 'default'
       const env = {
         ...process.env,
-        ...envOverrides.env
+        ...(params.env_overrides ?? {})
       }
 
       const permission = options.permission(command, {
@@ -476,7 +439,7 @@ export function createShellTool(options: ShellToolOptions): Tool {
 
       return result
     }
-  }
+  })
 }
 
 function emptyExecutionOutput(): ShellExecutionOutput {
@@ -488,8 +451,4 @@ function emptyExecutionOutput(): ShellExecutionOutput {
     timedOut: false,
     failedToStart: false
   }
-}
-
-function toolErrorJson(message: string): string {
-  return jsonResult({ error: message })
 }

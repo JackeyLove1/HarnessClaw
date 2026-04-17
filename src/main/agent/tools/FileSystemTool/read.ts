@@ -2,7 +2,10 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 
+import { z } from 'zod'
+
 import { getToolPriority } from '../priorities'
+import { defineTool, lazySchema, toolExecuteResultSchema } from '../schema'
 import type { Tool } from '../types'
 import {
   LARGE_FILE_HINT_BYTES,
@@ -15,14 +18,32 @@ import {
   hasBinaryExtension,
   isBlockedDevicePath,
   jsonResult,
-  numParam,
   redactSensitiveText,
-  strParam,
-  taskIdFromParams,
   toolError,
   toolResultFromJson,
   withReadTracker
 } from './utils'
+
+const readFileInputSchema = lazySchema(() =>
+  z.strictObject({
+    path: z.string().describe('Path to the file (absolute, relative, or ~/...)'),
+    offset: z.coerce
+      .number()
+      .transform((value) => Math.floor(value))
+      .pipe(z.number().int().min(1))
+      .optional()
+      .describe('First line to read (1-indexed)'),
+    limit: z.coerce
+      .number()
+      .transform((value) => Math.floor(value))
+      .pipe(z.number().int().min(1).max(READ_LINE_LIMIT_MAX))
+      .optional()
+      .describe('Max lines to read'),
+    task_id: z.string().optional().describe('Optional logical task id for read tracking')
+  })
+)
+
+const readFileOutputSchema = lazySchema(() => toolExecuteResultSchema)
 
 type ReadFileResult = {
   content: string
@@ -38,7 +59,11 @@ type ReadFileResult = {
   error?: string
 }
 
-async function readFilePaginated(filepath: string, offset: number, limit: number): Promise<ReadFileResult> {
+async function readFilePaginated(
+  filepath: string,
+  offset: number,
+  limit: number
+): Promise<ReadFileResult> {
   const expanded = expandUser(filepath)
   const stat = await fsp.stat(expanded)
   const raw = await fsp.readFile(expanded, 'utf8')
@@ -65,7 +90,12 @@ async function readFilePaginated(filepath: string, offset: number, limit: number
   }
 }
 
-async function readFileToolImpl(filepath: string, offset: number, limit: number, taskId: string): Promise<string> {
+async function readFileToolImpl(
+  filepath: string,
+  offset: number,
+  limit: number,
+  taskId: string
+): Promise<string> {
   try {
     if (isBlockedDevicePath(filepath)) {
       return jsonResult({
@@ -184,37 +214,23 @@ async function readFileToolImpl(filepath: string, offset: number, limit: number,
 }
 
 export function createReadFileTool(): Tool {
-  return {
+  return defineTool({
     name: 'read_file',
     label: 'Read file',
     priority: getToolPriority('read_file'),
     description:
       'Read a text file with line numbers and pagination. Format: LINE_NUM|CONTENT. ' +
       'Use offset (1-based) and limit for large files. Reads over the character budget are rejected.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        path: { type: 'string', description: 'Path to the file (absolute, relative, or ~/...)' },
-        offset: { type: 'integer', description: 'First line to read (1-indexed)', default: 1, minimum: 1 },
-        limit: {
-          type: 'integer',
-          description: 'Max lines to read',
-          default: 500,
-          minimum: 1,
-          maximum: READ_LINE_LIMIT_MAX
-        },
-        task_id: { type: 'string', description: 'Optional logical task id for read tracking' }
-      },
-      required: ['path'],
-      additionalProperties: false
-    },
+    inputSchema: readFileInputSchema,
+    outputSchema: readFileOutputSchema,
     execute: async (_id, params) => {
-      const pathArg = strParam(params.path)
-      const offset = Math.max(1, Math.floor(numParam(params.offset, 1)))
-      const limit = Math.min(Math.max(1, Math.floor(numParam(params.limit, 500))), READ_LINE_LIMIT_MAX)
-      const taskId = taskIdFromParams(params)
-      const text = await readFileToolImpl(pathArg, offset, limit, taskId)
+      const text = await readFileToolImpl(
+        params.path,
+        params.offset ?? 1,
+        params.limit ?? 500,
+        params.task_id || 'default'
+      )
       return toolResultFromJson(text)
     }
-  }
+  })
 }

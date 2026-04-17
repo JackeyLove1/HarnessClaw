@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.89.0
-        version: 0.89.0(zod@4.3.6)
+        version: 0.89.0(zod@4.0.0)
       '@electron-toolkit/preload':
         specifier: ^2.0.0
         version: 2.0.0(electron@25.9.8)
@@ -81,8 +81,8 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@18.19.130)(vite@4.5.14(@types/node@18.19.130))
       zod:
-        specifier: ^4.3.6
-        version: 4.3.6
+        specifier: ^4.0.0
+        version: 4.0.0
     devDependencies:
       '@electron-toolkit/eslint-config-prettier':
         specifier: ^1.0.1
@@ -4593,8 +4593,8 @@ packages:
     resolution: {integrity: sha512-9qv4rlDiopXg4E69k+vMHjNN63YFMe9sZMrdlvKnCjlCRWeCBswPPMPUfx+ipsAWq1LXHe70RcbaHdJJpS6hyQ==}
     engines: {node: '>= 10'}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+  zod@4.0.0:
+    resolution: {integrity: sha512-9diLdTPc/L7w/5jI4C3gHYNiGHDV9IZYxo1e5LSD8cabi65WVTWWb+g2BGPEpUUCOxR4D+6O5B0AzyMdUAXwrw==}
 
   zustand@5.0.12:
     resolution: {integrity: sha512-i77ae3aZq4dhMlRhJVCYgMLKuSiZAaUPAct2AksxQ+gOtimhGMdXljRT21P5BNpeT4kXlLIckvkPM029OljD7g==}
@@ -4623,11 +4623,11 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@anthropic-ai/sdk@0.89.0(zod@4.3.6)':
+  '@anthropic-ai/sdk@0.89.0(zod@4.0.0)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 4.3.6
+      zod: 4.0.0
 
   '@babel/code-frame@7.29.0':
     dependencies:
@@ -10199,7 +10199,7 @@ snapshots:
       compress-commons: 4.1.2
       readable-stream: 3.6.2
 
-  zod@4.3.6: {}
+  zod@4.0.0: {}
 
   zustand@5.0.12(@types/react@18.3.28)(react@18.3.1):
     optionalDependencies:

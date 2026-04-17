@@ -7,13 +7,12 @@ export type ToolExecuteResult = {
   details: { summary: string; [key: string]: unknown }
 }
 
-export type ToolInputSchema = {
+export type ToolInputSchema = Record<string, unknown> & {
   type: 'object'
-  properties: Record<string, unknown>
+  properties?: Record<string, unknown>
   required?: string[]
   additionalProperties?: boolean
 }
-
 
 export type Tool = {
   name: string
@@ -23,6 +22,5 @@ export type Tool = {
   priority?: number
   execute: (toolCallId: string, params: Record<string, unknown>) => Promise<ToolExecuteResult>
 }
-
 
 export type ToolFactory = () => Tool
