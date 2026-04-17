@@ -8,6 +8,7 @@ import type {
   GetNotes,
   GetUsageOverview,
   ListToolCallRecords,
+  ListToolStats,
   ListUsageRecords,
   ListSessions,
   OpenSession,
@@ -53,6 +54,7 @@ declare global {
       getUsageOverview: GetUsageOverview
       listUsageRecords: ListUsageRecords
       listToolCallRecords: ListToolCallRecords
+      listToolStats: ListToolStats
     }
   }
 }

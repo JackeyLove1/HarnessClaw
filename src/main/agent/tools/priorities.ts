@@ -22,3 +22,45 @@ export const TOOL_PRIORITIES: Record<string, number> = {
 export function getToolPriority(name: string): number {
   return TOOL_PRIORITIES[name] ?? DEFAULT_PRIORITY
 }
+
+export type ToolPriorityMetrics = {
+  name: string
+  basePriority?: number
+  useCount?: number
+}
+
+export function getEffectiveToolPriority(
+  name: string,
+  useCount = 0,
+  basePriority = getToolPriority(name)
+): number {
+  return basePriority + Math.max(0, Math.trunc(useCount))
+}
+
+export function compareToolPriorityMetrics(
+  left: ToolPriorityMetrics,
+  right: ToolPriorityMetrics
+): number {
+  const leftBasePriority = left.basePriority ?? getToolPriority(left.name)
+  const rightBasePriority = right.basePriority ?? getToolPriority(right.name)
+  const leftEffectivePriority = getEffectiveToolPriority(
+    left.name,
+    left.useCount ?? 0,
+    leftBasePriority
+  )
+  const rightEffectivePriority = getEffectiveToolPriority(
+    right.name,
+    right.useCount ?? 0,
+    rightBasePriority
+  )
+
+  if (rightEffectivePriority !== leftEffectivePriority) {
+    return rightEffectivePriority - leftEffectivePriority
+  }
+
+  if (rightBasePriority !== leftBasePriority) {
+    return rightBasePriority - leftBasePriority
+  }
+
+  return left.name.localeCompare(right.name)
+}

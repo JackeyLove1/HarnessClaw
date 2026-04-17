@@ -345,6 +345,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
           type: 'tool.called',
           assistantMessageId,
           groupId: toolGroupId,
+          requestRound,
           toolCallId: toolCall.id,
           toolName: toolCall.name,
           argsSummary: summarizeValue(toolCall.input)
@@ -357,11 +358,17 @@ export class AnthropicChatRuntime implements ChatRuntime {
             type: 'tool.completed',
             assistantMessageId,
             groupId: toolGroupId,
+            requestRound,
             toolCallId: toolCall.id,
             toolName: toolCall.name,
             outputSummary,
             durationMs: Date.now() - started,
-            isError: true
+            isError: true,
+            roundInputTokens: usageForRound.inputTokens,
+            roundOutputTokens: usageForRound.outputTokens,
+            roundCacheCreationTokens: usageForRound.cacheCreationTokens,
+            roundCacheReadTokens: usageForRound.cacheReadTokens,
+            roundToolCallCount: Math.max(1, toolCalls.length)
           })
           toolResultContent.push({
             type: 'tool_result',
@@ -380,11 +387,17 @@ export class AnthropicChatRuntime implements ChatRuntime {
             type: 'tool.completed',
             assistantMessageId,
             groupId: toolGroupId,
+            requestRound,
             toolCallId: toolCall.id,
             toolName: toolCall.name,
             outputSummary,
             durationMs: Date.now() - started,
-            isError: false
+            isError: false,
+            roundInputTokens: usageForRound.inputTokens,
+            roundOutputTokens: usageForRound.outputTokens,
+            roundCacheCreationTokens: usageForRound.cacheCreationTokens,
+            roundCacheReadTokens: usageForRound.cacheReadTokens,
+            roundToolCallCount: Math.max(1, toolCalls.length)
           })
           toolResultContent.push({
             type: 'tool_result',
@@ -397,11 +410,17 @@ export class AnthropicChatRuntime implements ChatRuntime {
             type: 'tool.completed',
             assistantMessageId,
             groupId: toolGroupId,
+            requestRound,
             toolCallId: toolCall.id,
             toolName: toolCall.name,
             outputSummary,
             durationMs: Date.now() - started,
-            isError: true
+            isError: true,
+            roundInputTokens: usageForRound.inputTokens,
+            roundOutputTokens: usageForRound.outputTokens,
+            roundCacheCreationTokens: usageForRound.cacheCreationTokens,
+            roundCacheReadTokens: usageForRound.cacheReadTokens,
+            roundToolCallCount: Math.max(1, toolCalls.length)
           })
           toolResultContent.push({
             type: 'tool_result',

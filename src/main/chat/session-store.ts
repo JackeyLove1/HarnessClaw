@@ -3,10 +3,16 @@ import type Database from 'better-sqlite3'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
 import type {
   ToolCallUsageRecord,
+  ToolStatsRecord,
   UsageOverview,
   UsageRecord,
   UsageRecordKind
 } from '@shared/types'
+import {
+  compareToolPriorityMetrics,
+  getEffectiveToolPriority,
+  getToolPriority
+} from '../agent/tools/priorities'
 import { getDatabase } from '../lib/database'
 import { ensureChatSchema } from './sqlite-schema'
 
@@ -131,6 +137,72 @@ const rowToUsageRecord = (row: UsageRow): UsageRecord => {
     cacheReadTokens: row.cacheReadTokens,
     totalTokens,
     timestamp: row.timestamp
+  }
+}
+
+type ToolUsageRecordInput = {
+  toolCallId: string
+  sessionId?: string | null
+  assistantMessageId?: string | null
+  requestRound: number
+  toolName: string
+  callType: 'tool' | 'mcp'
+  status: 'success' | 'error'
+  durationMs: number
+  argsSummary?: string
+  outputSummary?: string
+  roundInputTokens?: number
+  roundOutputTokens?: number
+  roundCacheCreationTokens?: number
+  roundCacheReadTokens?: number
+  roundToolCallCount?: number
+  timestamp?: number
+}
+
+type ToolStatsRow = {
+  toolName: string
+  callType: 'tool' | 'mcp'
+  useCount: number
+  successCount: number
+  errorCount: number
+  totalDurationMs: number
+  averageDurationMs: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalCacheCreationTokens: number
+  totalCacheReadTokens: number
+  lastUsedAt: number | null
+}
+
+const asRoundedMetric = (value: number): number => Math.max(0, Math.round(value))
+
+const rowToToolStatsRecord = (row: ToolStatsRow): ToolStatsRecord => {
+  const basePriority = getToolPriority(row.toolName)
+  const totalInputTokens = asRoundedMetric(row.totalInputTokens)
+  const totalOutputTokens = asRoundedMetric(row.totalOutputTokens)
+  const totalCacheCreationTokens = asRoundedMetric(row.totalCacheCreationTokens)
+  const totalCacheReadTokens = asRoundedMetric(row.totalCacheReadTokens)
+
+  return {
+    toolName: row.toolName,
+    callType: row.callType,
+    basePriority,
+    effectivePriority: getEffectiveToolPriority(row.toolName, row.useCount, basePriority),
+    useCount: row.useCount,
+    successCount: row.successCount,
+    errorCount: row.errorCount,
+    totalDurationMs: row.totalDurationMs,
+    averageDurationMs: asRoundedMetric(row.averageDurationMs),
+    totalInputTokens,
+    totalOutputTokens,
+    totalCacheCreationTokens,
+    totalCacheReadTokens,
+    totalTokens:
+      totalInputTokens +
+      totalOutputTokens +
+      totalCacheCreationTokens +
+      totalCacheReadTokens,
+    lastUsedAt: row.lastUsedAt
   }
 }
 
@@ -379,6 +451,87 @@ export class ChatSessionStore {
       })
   }
 
+  appendToolUsageRecord(record: ToolUsageRecordInput): void {
+    this.db
+      .prepare(
+        `
+        INSERT INTO tool_usage_records (
+          id,
+          toolCallId,
+          sessionId,
+          assistantMessageId,
+          requestRound,
+          toolName,
+          callType,
+          status,
+          durationMs,
+          argsSummary,
+          outputSummary,
+          roundInputTokens,
+          roundOutputTokens,
+          roundCacheCreationTokens,
+          roundCacheReadTokens,
+          roundToolCallCount,
+          timestamp
+        )
+        VALUES (
+          @id,
+          @toolCallId,
+          @sessionId,
+          @assistantMessageId,
+          @requestRound,
+          @toolName,
+          @callType,
+          @status,
+          @durationMs,
+          @argsSummary,
+          @outputSummary,
+          @roundInputTokens,
+          @roundOutputTokens,
+          @roundCacheCreationTokens,
+          @roundCacheReadTokens,
+          @roundToolCallCount,
+          @timestamp
+        )
+        ON CONFLICT(toolCallId) DO UPDATE SET
+          sessionId = excluded.sessionId,
+          assistantMessageId = excluded.assistantMessageId,
+          requestRound = excluded.requestRound,
+          toolName = excluded.toolName,
+          callType = excluded.callType,
+          status = excluded.status,
+          durationMs = excluded.durationMs,
+          argsSummary = excluded.argsSummary,
+          outputSummary = excluded.outputSummary,
+          roundInputTokens = excluded.roundInputTokens,
+          roundOutputTokens = excluded.roundOutputTokens,
+          roundCacheCreationTokens = excluded.roundCacheCreationTokens,
+          roundCacheReadTokens = excluded.roundCacheReadTokens,
+          roundToolCallCount = excluded.roundToolCallCount,
+          timestamp = excluded.timestamp
+        `
+      )
+      .run({
+        id: randomUUID(),
+        toolCallId: record.toolCallId,
+        sessionId: record.sessionId ?? null,
+        assistantMessageId: record.assistantMessageId ?? null,
+        requestRound: record.requestRound,
+        toolName: record.toolName,
+        callType: record.callType,
+        status: record.status,
+        durationMs: record.durationMs,
+        argsSummary: record.argsSummary ?? '',
+        outputSummary: record.outputSummary ?? '',
+        roundInputTokens: record.roundInputTokens ?? 0,
+        roundOutputTokens: record.roundOutputTokens ?? 0,
+        roundCacheCreationTokens: record.roundCacheCreationTokens ?? 0,
+        roundCacheReadTokens: record.roundCacheReadTokens ?? 0,
+        roundToolCallCount: Math.max(1, record.roundToolCallCount ?? 1),
+        timestamp: record.timestamp ?? Date.now()
+      })
+  }
+
   async getUsageOverview(now = Date.now()): Promise<UsageOverview> {
     const startOfDay = new Date(now)
     startOfDay.setHours(0, 0, 0, 0)
@@ -509,6 +662,62 @@ export class ChatSessionStore {
         } satisfies ToolCallUsageRecord
       })
       .filter(Boolean)
+  }
+
+  getToolUseCountsSync(): Map<string, number> {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT toolName, COUNT(*) as useCount
+        FROM tool_usage_records
+        GROUP BY toolName
+        `
+      )
+      .all() as Array<{ toolName: string; useCount: number }>
+
+    return new Map(rows.map((row) => [row.toolName, row.useCount]))
+  }
+
+  async listToolStats(limit = 100): Promise<ToolStatsRecord[]> {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT
+          toolName as toolName,
+          callType as callType,
+          COUNT(*) as useCount,
+          SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successCount,
+          SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errorCount,
+          COALESCE(SUM(durationMs), 0) as totalDurationMs,
+          COALESCE(AVG(durationMs), 0) as averageDurationMs,
+          COALESCE(SUM(CASE WHEN roundToolCallCount > 0 THEN (roundInputTokens * 1.0) / roundToolCallCount ELSE 0 END), 0) as totalInputTokens,
+          COALESCE(SUM(CASE WHEN roundToolCallCount > 0 THEN (roundOutputTokens * 1.0) / roundToolCallCount ELSE 0 END), 0) as totalOutputTokens,
+          COALESCE(SUM(CASE WHEN roundToolCallCount > 0 THEN (roundCacheCreationTokens * 1.0) / roundToolCallCount ELSE 0 END), 0) as totalCacheCreationTokens,
+          COALESCE(SUM(CASE WHEN roundToolCallCount > 0 THEN (roundCacheReadTokens * 1.0) / roundToolCallCount ELSE 0 END), 0) as totalCacheReadTokens,
+          MAX(timestamp) as lastUsedAt
+        FROM tool_usage_records
+        GROUP BY toolName, callType
+        `
+      )
+      .all() as ToolStatsRow[]
+
+    return rows
+      .map(rowToToolStatsRecord)
+      .sort((left, right) =>
+        compareToolPriorityMetrics(
+          {
+            name: left.toolName,
+            basePriority: left.basePriority,
+            useCount: left.useCount
+          },
+          {
+            name: right.toolName,
+            basePriority: right.basePriority,
+            useCount: right.useCount
+          }
+        )
+      )
+      .slice(0, limit)
   }
 
   async updateSessionTitle(sessionId: string, title: string): Promise<SessionMeta> {

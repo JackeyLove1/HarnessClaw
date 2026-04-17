@@ -81,6 +81,24 @@ export interface ToolCallUsageRecord {
   outputSummary: string
 }
 
+export interface ToolStatsRecord {
+  toolName: string
+  callType: 'tool' | 'mcp'
+  basePriority: number
+  effectivePriority: number
+  useCount: number
+  successCount: number
+  errorCount: number
+  totalDurationMs: number
+  averageDurationMs: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalCacheCreationTokens: number
+  totalCacheReadTokens: number
+  totalTokens: number
+  lastUsedAt: number | null
+}
+
 export type GetAnthropicSettings = () => Promise<AnthropicSettings>
 export type SaveAnthropicSettings = (settings: AnthropicSettings) => Promise<AnthropicSettings>
 export type TestAnthropicConnection = (
@@ -89,3 +107,4 @@ export type TestAnthropicConnection = (
 export type GetUsageOverview = () => Promise<UsageOverview>
 export type ListUsageRecords = (limit?: number) => Promise<UsageRecord[]>
 export type ListToolCallRecords = (limit?: number) => Promise<ToolCallUsageRecord[]>
+export type ListToolStats = (limit?: number) => Promise<ToolStatsRecord[]>

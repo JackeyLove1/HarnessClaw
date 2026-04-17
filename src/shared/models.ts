@@ -54,6 +54,7 @@ export type ToolCalledEvent = ChatEventBase & {
   type: 'tool.called'
   assistantMessageId: string
   groupId: string
+  requestRound: number
   toolCallId: string
   toolName: string
   argsSummary: string
@@ -63,11 +64,17 @@ export type ToolCompletedEvent = ChatEventBase & {
   type: 'tool.completed'
   assistantMessageId: string
   groupId: string
+  requestRound: number
   toolCallId: string
   toolName: string
   outputSummary: string
   durationMs: number
   isError: boolean
+  roundInputTokens: number
+  roundOutputTokens: number
+  roundCacheCreationTokens: number
+  roundCacheReadTokens: number
+  roundToolCallCount: number
 }
 
 export type AssistantApiUsage = {

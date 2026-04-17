@@ -63,6 +63,7 @@ describe('chat reducer', () => {
           timestamp: 5,
           assistantMessageId: 'assistant-1',
           groupId: 'group-1',
+          requestRound: 1,
           toolCallId: 'tool-1',
           toolName: 'echo',
           argsSummary: '{"text":"hello"}'
@@ -74,11 +75,17 @@ describe('chat reducer', () => {
           timestamp: 6,
           assistantMessageId: 'assistant-1',
           groupId: 'group-1',
+          requestRound: 1,
           toolCallId: 'tool-1',
           toolName: 'echo',
           outputSummary: 'hello',
           durationMs: 8,
-          isError: false
+          isError: false,
+          roundInputTokens: 12,
+          roundOutputTokens: 6,
+          roundCacheCreationTokens: 0,
+          roundCacheReadTokens: 0,
+          roundToolCallCount: 1
         },
         {
           type: 'assistant.delta',

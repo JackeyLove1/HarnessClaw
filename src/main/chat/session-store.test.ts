@@ -91,6 +91,86 @@ describe('ChatSessionStore', () => {
     expect(results).toHaveLength(2)
   })
 
+  it('persists normalized tool usage and aggregates tool stats', async () => {
+    const store = createStore()
+    const session = await store.createSession('session-tools')
+
+    store.appendToolUsageRecord({
+      toolCallId: 'tool-call-1',
+      sessionId: session.id,
+      assistantMessageId: 'assistant-1',
+      requestRound: 1,
+      toolName: 'read_file',
+      callType: 'tool',
+      status: 'success',
+      durationMs: 25,
+      argsSummary: '{"path":"README.md"}',
+      outputSummary: 'ok',
+      roundInputTokens: 120,
+      roundOutputTokens: 30,
+      roundCacheCreationTokens: 10,
+      roundCacheReadTokens: 0,
+      roundToolCallCount: 2,
+      timestamp: 1_000
+    })
+
+    store.appendToolUsageRecord({
+      toolCallId: 'tool-call-2',
+      sessionId: session.id,
+      assistantMessageId: 'assistant-1',
+      requestRound: 1,
+      toolName: 'read_file',
+      callType: 'tool',
+      status: 'error',
+      durationMs: 35,
+      argsSummary: '{"path":"missing.md"}',
+      outputSummary: 'missing',
+      roundInputTokens: 120,
+      roundOutputTokens: 30,
+      roundCacheCreationTokens: 10,
+      roundCacheReadTokens: 0,
+      roundToolCallCount: 2,
+      timestamp: 1_100
+    })
+
+    const stats = await store.listToolStats(10)
+    const readFileStats = stats.find((record) => record.toolName === 'read_file')
+
+    expect(readFileStats).toBeDefined()
+    expect(readFileStats?.useCount).toBe(2)
+    expect(readFileStats?.successCount).toBe(1)
+    expect(readFileStats?.errorCount).toBe(1)
+    expect(readFileStats?.effectivePriority).toBe(102)
+    expect(readFileStats?.totalTokens).toBe(160)
+  })
+
+  it('returns tool use counts for runtime priority sorting', async () => {
+    const store = createStore()
+    const session = await store.createSession('session-priority')
+
+    store.appendToolUsageRecord({
+      toolCallId: 'tool-call-a',
+      sessionId: session.id,
+      requestRound: 1,
+      toolName: 'todo',
+      callType: 'tool',
+      status: 'success',
+      durationMs: 5
+    })
+
+    store.appendToolUsageRecord({
+      toolCallId: 'tool-call-b',
+      sessionId: session.id,
+      requestRound: 1,
+      toolName: 'todo',
+      callType: 'tool',
+      status: 'error',
+      durationMs: 6
+    })
+
+    expect(store.getToolUseCountsSync().get('todo')).toBe(2)
+  })
+
   it('sorts sessions and keeps only the latest ten for the sidebar selector', () => {
     const sessions = Array.from({ length: 14 }, (_, index) => ({
       id: String(index),

@@ -131,6 +131,14 @@ describe('AnthropicChatRuntime', () => {
         return event.type === 'assistant.completed'
       }
     )
+    const toolCompleted = events.find(
+      (event): event is Extract<ChatEvent, { type: 'tool.completed' }> => {
+        return event.type === 'tool.completed'
+      }
+    )
+
     expect(completed?.text).toBe('Checking done')
+    expect(toolCompleted?.requestRound).toBe(1)
+    expect(toolCompleted?.roundToolCallCount).toBe(1)
   })
 })

@@ -1,9 +1,10 @@
 import { createBashTool, type BashToolOptions } from './BashTool'
+import { ChatSessionStore } from '../../chat/session-store'
 import { createPatchTool, createReadFileTool, createWriteFileTool } from './FileSystemTool'
 import { createGetTimeTool } from './get-time'
 import { createPowerShellTool, type PowerShellToolOptions } from './PowerShellTool'
 import { createTodoTool } from './TodoTool'
-import { DEFAULT_PRIORITY } from './priorities'
+import { compareToolPriorityMetrics } from './priorities'
 import type {
   PostToolUseHook,
   PreToolUseHook,
@@ -13,14 +14,40 @@ import type {
 import type { Tool, ToolFactory } from './types'
 import { withResultPersistence, DEFAULT_BUDGET, type BudgetConfig } from './budget'
 
+const readToolUseCounts = (): Map<string, number> => {
+  try {
+    return new ChatSessionStore().getToolUseCountsSync()
+  } catch {
+    return new Map()
+  }
+}
+
+export function sortToolsByUsagePriority(
+  tools: Tool[],
+  useCounts: ReadonlyMap<string, number> = readToolUseCounts()
+): Tool[] {
+  return [...tools].sort((left, right) =>
+    compareToolPriorityMetrics(
+      {
+        name: left.name,
+        basePriority: left.priority,
+        useCount: useCounts.get(left.name) ?? 0
+      },
+      {
+        name: right.name,
+        basePriority: right.priority,
+        useCount: useCounts.get(right.name) ?? 0
+      }
+    )
+  )
+}
+
 /**
  * Safe defaults for the chat runtime: time + read-only file inspection.
  * (No `write_file` / `patch` — add those via `createTools` or custom wiring.)
  */
 export function createReadOnlyTools(): Tool[] {
-  return [createGetTimeTool(), createReadFileTool()].sort(
-    (a, b) => (b.priority ?? DEFAULT_PRIORITY) - (a.priority ?? DEFAULT_PRIORITY)
-  )
+  return sortToolsByUsagePriority([createGetTimeTool(), createReadFileTool()])
 }
 
 const toolFactories: ToolFactory[] = [
@@ -69,9 +96,7 @@ export function createTools(options: CreateToolsOptions = {}): Tool[] {
     createPlatformShellTool(options.platform, options.shellTool)
   ]
   const withPersistence = baseTools.map((tool) => withResultPersistence(tool, config))
-  return withPersistence.sort(
-    (a, b) => (b.priority ?? DEFAULT_PRIORITY) - (a.priority ?? DEFAULT_PRIORITY)
-  )
+  return sortToolsByUsagePriority(withPersistence)
 }
 
 export { createBashTool } from './BashTool'

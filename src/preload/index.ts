@@ -9,6 +9,7 @@ import type {
   GetNotes,
   GetUsageOverview,
   ListToolCallRecords,
+  ListToolStats,
   ListUsageRecords,
   ListSessions,
   OpenSession,
@@ -100,7 +101,9 @@ try {
     listUsageRecords: (...args: Parameters<ListUsageRecords>) =>
       invoke<Awaited<ReturnType<ListUsageRecords>>>('settings:listUsageRecords', ...args),
     listToolCallRecords: (...args: Parameters<ListToolCallRecords>) =>
-      invoke<Awaited<ReturnType<ListToolCallRecords>>>('settings:listToolCallRecords', ...args)
+      invoke<Awaited<ReturnType<ListToolCallRecords>>>('settings:listToolCallRecords', ...args),
+    listToolStats: (...args: Parameters<ListToolStats>) =>
+      invoke<Awaited<ReturnType<ListToolStats>>>('settings:listToolStats', ...args)
   })
 } catch (error) {
   console.error(error)

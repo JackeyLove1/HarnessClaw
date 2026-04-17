@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { BrowserWindow } from 'electron'
 import type { ChatEvent, SessionMeta, SessionSnapshot } from '@shared/models'
-import type { ToolCallUsageRecord, UsageOverview, UsageRecord } from '@shared/types'
+import type { ToolCallUsageRecord, ToolStatsRecord, UsageOverview, UsageRecord } from '@shared/types'
 import {
   ChatSessionStore,
   DEFAULT_SESSION_TITLE,
@@ -80,6 +80,10 @@ export class ChatSupervisor {
 
   async listToolCallRecords(limit?: number): Promise<ToolCallUsageRecord[]> {
     return this.store.listToolCallRecords(limit)
+  }
+
+  async listToolStats(limit?: number): Promise<ToolStatsRecord[]> {
+    return this.store.listToolStats(limit)
   }
 
   async searchSessions(query: string): Promise<SessionMeta[]> {
@@ -173,6 +177,10 @@ export class ChatSupervisor {
 
       let assistantText = ''
       let shouldGenerateTitle = false
+      const toolArgsByCallId = new Map<
+        string,
+        { assistantMessageId: string; requestRound: number; toolName: string; argsSummary: string }
+      >()
 
       for await (const event of this.runtime.runTurn({
         sessionId,
@@ -183,6 +191,38 @@ export class ChatSupervisor {
         assistantText = event.type === 'assistant.completed' ? event.text : assistantText
 
         await this.store.appendEvent(sessionId, event)
+
+        if (event.type === 'tool.called') {
+          toolArgsByCallId.set(event.toolCallId, {
+            assistantMessageId: event.assistantMessageId,
+            requestRound: event.requestRound,
+            toolName: event.toolName,
+            argsSummary: event.argsSummary
+          })
+        }
+
+        if (event.type === 'tool.completed') {
+          const toolMeta = toolArgsByCallId.get(event.toolCallId)
+          this.store.appendToolUsageRecord({
+            toolCallId: event.toolCallId,
+            sessionId,
+            assistantMessageId: event.assistantMessageId ?? toolMeta?.assistantMessageId ?? null,
+            requestRound: event.requestRound ?? toolMeta?.requestRound ?? 0,
+            toolName: event.toolName ?? toolMeta?.toolName ?? '',
+            callType: event.toolName.toLowerCase().includes('mcp') ? 'mcp' : 'tool',
+            status: event.isError ? 'error' : 'success',
+            durationMs: event.durationMs,
+            argsSummary: toolMeta?.argsSummary ?? '',
+            outputSummary: event.outputSummary,
+            roundInputTokens: event.roundInputTokens,
+            roundOutputTokens: event.roundOutputTokens,
+            roundCacheCreationTokens: event.roundCacheCreationTokens,
+            roundCacheReadTokens: event.roundCacheReadTokens,
+            roundToolCallCount: event.roundToolCallCount,
+            timestamp: event.timestamp
+          })
+          toolArgsByCallId.delete(event.toolCallId)
+        }
 
         if (event.type === 'assistant.completed' && event.apiUsages?.length) {
           for (const usage of event.apiUsages) {

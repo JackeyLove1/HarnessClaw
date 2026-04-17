@@ -7,6 +7,7 @@ import type {
   GetUsageOverview,
   GetNotes,
   ListToolCallRecords,
+  ListToolStats,
   ListUsageRecords,
   ReadNote,
   TestAnthropicConnection,
@@ -278,6 +279,12 @@ function registerSettingsIpc(): void {
       throw new Error('Chat supervisor is not initialized.')
     }
     return chatSupervisor.listToolCallRecords(...args)
+  })
+  ipcMain.handle('settings:listToolStats', (_, ...args: Parameters<ListToolStats>) => {
+    if (!chatSupervisor) {
+      throw new Error('Chat supervisor is not initialized.')
+    }
+    return chatSupervisor.listToolStats(...args)
   })
 }
 
