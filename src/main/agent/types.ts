@@ -24,6 +24,7 @@ export type RunTurnArgs = {
   sessionId: string
   userText: string
   hasUserContent?: boolean
+  sessionMemory?: string | null
   history?: ChatEvent[]
   signal?: AbortSignal
 }

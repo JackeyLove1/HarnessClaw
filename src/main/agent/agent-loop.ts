@@ -82,6 +82,25 @@ Environment:
 
 ${formatInstalledSkillsSection(installedSkills)}`
 
+const buildRuntimeSystemPrompt = (
+  installedSkills: readonly InstalledSkill[],
+  sessionMemory?: string | null
+): string => {
+  const basePrompt = buildSystemPrompt(installedSkills)
+  const memory = sessionMemory?.trim()
+
+  if (!memory) {
+    return basePrompt
+  }
+
+  return `${basePrompt}
+
+Session memory:
+${memory}
+
+Use the session memory as the authoritative summary of earlier turns. Do not ask the user to restate information that is already captured there unless it is ambiguous or stale.`
+}
+
 const asFiniteNumber = (value: unknown): number => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 0
@@ -154,8 +173,8 @@ export class AnthropicChatRuntime implements ChatRuntime {
     })
   }
 
-  private getSystemPrompt(): string {
-    return buildSystemPrompt(this.installedSkills)
+  private getSystemPrompt(sessionMemory?: string | null): string {
+    return buildRuntimeSystemPrompt(this.installedSkills, sessionMemory)
   }
 
   async testConnection(): Promise<ConnectionTestResult> {
@@ -165,7 +184,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
     const response = await client.messages.create({
       model: config.model,
       max_tokens: 24,
-      system: this.getSystemPrompt(),
+      system: buildSystemPrompt(this.installedSkills),
       messages: [{ role: 'user', content: 'Reply with exactly "pong".' }]
     })
 
@@ -207,6 +226,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
     sessionId,
     userText,
     hasUserContent = Boolean(String(userText ?? '').trim()),
+    sessionMemory = null,
     history = [],
     signal
   }: RunTurnArgs): AsyncIterable<ChatEvent> {
@@ -259,7 +279,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
         {
           model: config.model,
           max_tokens: 2048,
-          system: this.getSystemPrompt(),
+          system: this.getSystemPrompt(sessionMemory),
           tools: anthropicTools,
           messages,
           stream: true
@@ -566,7 +586,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
       const response = await client.messages.create({
         model: config.model,
         max_tokens: 32,
-        system: this.getSystemPrompt(),
+        system: buildSystemPrompt(this.installedSkills),
         messages: [
           {
             role: 'user',

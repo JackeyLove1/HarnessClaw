@@ -45,6 +45,19 @@ export const ensureChatSchema = (db: Database.Database): void => {
   `)
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS session_memories (
+      sessionId TEXT PRIMARY KEY,
+      summary TEXT NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY (sessionId) REFERENCES chat_sessions(id) ON DELETE CASCADE
+    );
+  `)
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_session_memories_updatedAt ON session_memories(updatedAt DESC);
+  `)
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS chat_usage_records (
       id TEXT PRIMARY KEY,
       sessionId TEXT,

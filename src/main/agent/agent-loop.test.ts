@@ -277,6 +277,68 @@ describe('AnthropicChatRuntime', () => {
     expect(events.at(-1)?.type).toBe('assistant.completed')
   })
 
+  it('injects session memory into the system prompt and only sends the latest user message', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
+    process.env.NOTEMARK_MODEL = 'claude-sonnet-4-5'
+
+    messagesCreateMock.mockImplementation(async (params: { stream?: boolean }) => {
+      if (!params.stream) {
+        return {
+          content: [{ type: 'text', text: 'pong' }]
+        }
+      }
+
+      return toStream([
+        {
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'text', text: '' }
+        },
+        {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'text_delta', text: 'Using memory' }
+        }
+      ])
+    })
+
+    const runtime = new AnthropicChatRuntime()
+    const latestUserMessage: ChatEvent = {
+      type: 'user.message',
+      eventId: 'u_latest',
+      sessionId: 's_memory',
+      timestamp: 3,
+      messageId: 'u_latest',
+      text: 'Continue from the summary'
+    }
+
+    const events: ChatEvent[] = []
+    for await (const event of runtime.runTurn({
+      sessionId: 's_memory',
+      userText: 'Continue from the summary',
+      sessionMemory: '## Goal\nContinue the migration',
+      history: [latestUserMessage]
+    })) {
+      events.push(event)
+    }
+
+    const firstCallArgs = messagesCreateMock.mock.calls[0]?.[0] as {
+      system?: string
+      messages?: Array<{ role: string; content: unknown }>
+    }
+
+    expect(firstCallArgs.system).toContain('Session memory:')
+    expect(firstCallArgs.system).toContain('## Goal\nContinue the migration')
+    expect(firstCallArgs.messages).toEqual([
+      {
+        role: 'user',
+        content: 'Continue from the summary'
+      }
+    ])
+    expect(events.at(-1)?.type).toBe('assistant.completed')
+  })
+
   it('retries idempotent tools on transient faults and reports structured fault metadata', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-key'
     process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'

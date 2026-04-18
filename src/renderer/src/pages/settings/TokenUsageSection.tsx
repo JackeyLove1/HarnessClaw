@@ -41,7 +41,8 @@ const formatTimestamp = (value: number | null): string =>
 const usageKindLabel: Record<UsageRecord['kind'], string> = {
   chat_turn: 'Chat Turn',
   title_gen: 'Title Generation',
-  connection_test: 'Connection Test'
+  connection_test: 'Connection Test',
+  session_memory: 'Session Memory'
 }
 
 const toolStatusLabel: Record<ToolCallUsageRecord['status'], string> = {

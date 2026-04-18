@@ -13,14 +13,42 @@ import {
   ChatSessionStore,
   DEFAULT_SESSION_TITLE,
   clampSessionTitle,
-  fallbackTitleFromUserText
+  fallbackTitleFromUserText,
+  type SessionMemoryRecord
 } from './session-store'
+import {
+  createSessionMemoryCompactor,
+  selectSummarizableEvents,
+  type SessionMemoryCompactor
+} from '../agent/compaction'
 import { validateRuntimeConfig } from '../agent/config'
 import { createChatRuntime } from '../agent'
 import { removeSessionAttachmentDir, savePendingImageAttachments } from './image-attachments'
 
 type ActiveRun = {
   abortController: AbortController
+}
+
+type PreparedSessionMemory = {
+  summary: string | null
+  updatedAt: number
+  isReady: boolean
+}
+
+type ChatRuntimeLike = {
+  runTurn: (args: {
+    sessionId: string
+    userText: string
+    hasUserContent?: boolean
+    sessionMemory?: string | null
+    history: ChatEvent[]
+    signal: AbortSignal
+  }) => AsyncIterable<ChatEvent>
+  generateTitle: (args: {
+    sessionId: string
+    userText: string
+    assistantText: string
+  }) => Promise<string>
 }
 
 const toErrorMessage = (error: unknown): string => {
@@ -33,6 +61,9 @@ const toErrorMessage = (error: unknown): string => {
 
 const createEventId = (type: ChatEvent['type']): string => `${type}_${randomUUID()}`
 
+const getLatestTimestamp = (events: ChatEvent[]): number =>
+  events.reduce((latest, event) => Math.max(latest, event.timestamp), 0)
+
 export class ChatSupervisor {
   private readonly windows = new Set<BrowserWindow>()
 
@@ -40,24 +71,20 @@ export class ChatSupervisor {
 
   private readonly store: ChatSessionStore
 
-  private readonly runtime: {
-    runTurn: (args: {
-      sessionId: string
-      userText: string
-      hasUserContent?: boolean
-      history: ChatEvent[]
-      signal: AbortSignal
-    }) => AsyncIterable<ChatEvent>
-    generateTitle: (args: {
-      sessionId: string
-      userText: string
-      assistantText: string
-    }) => Promise<string>
-  }
+  private readonly runtime: ChatRuntimeLike
 
-  constructor(store = new ChatSessionStore()) {
+  private readonly sessionMemoryCompactor: SessionMemoryCompactor
+
+  constructor(
+    store = new ChatSessionStore(),
+    options: {
+      runtime?: ChatRuntimeLike
+      sessionMemoryCompactor?: SessionMemoryCompactor
+    } = {}
+  ) {
     this.store = store
-    this.runtime = createChatRuntime()
+    this.runtime = options.runtime ?? createChatRuntime()
+    this.sessionMemoryCompactor = options.sessionMemoryCompactor ?? createSessionMemoryCompactor()
   }
 
   attachWindow(window: BrowserWindow): void {
@@ -185,7 +212,15 @@ export class ChatSupervisor {
     let abortController: AbortController | null = null
 
     try {
+      abortController = new AbortController()
+      this.activeRuns.set(sessionId, { abortController })
+
       const snapshot = await this.store.openSession(sessionId)
+      const sessionMemory = await this.prepareSessionMemory(
+        sessionId,
+        snapshot.events,
+        abortController.signal
+      )
       const persistedAttachments = await savePendingImageAttachments(sessionId, attachments)
       const userEvent: ChatEvent = {
         type: 'user.message',
@@ -205,11 +240,10 @@ export class ChatSupervisor {
       })
       this.broadcast(userEvent)
 
-      abortController = new AbortController()
-      this.activeRuns.set(sessionId, { abortController })
-
       let assistantText = ''
+      let assistantCompletedEvent: Extract<ChatEvent, { type: 'assistant.completed' }> | null = null
       let shouldGenerateTitle = false
+      const turnEvents: ChatEvent[] = []
       const toolArgsByCallId = new Map<
         string,
         { assistantMessageId: string; requestRound: number; toolName: string; argsSummary: string }
@@ -219,12 +253,14 @@ export class ChatSupervisor {
         sessionId,
         userText: trimmed,
         hasUserContent: Boolean(trimmed) || persistedAttachments.length > 0,
-        history: [...snapshot.events, userEvent],
+        sessionMemory: sessionMemory.summary,
+        history: sessionMemory.summary ? [userEvent] : [...snapshot.events, userEvent],
         signal: abortController.signal
       })) {
         assistantText = event.type === 'assistant.completed' ? event.text : assistantText
 
         await this.store.appendEvent(sessionId, event)
+        turnEvents.push(event)
 
         if (event.type === 'tool.called') {
           toolArgsByCallId.set(event.toolCallId, {
@@ -285,6 +321,7 @@ export class ChatSupervisor {
         }
 
         if (event.type === 'assistant.completed') {
+          assistantCompletedEvent = event
           const updatedMeta = await this.store.updateMeta(sessionId, (current) => ({
             ...current,
             updatedAt: event.timestamp,
@@ -298,6 +335,16 @@ export class ChatSupervisor {
         }
 
         this.broadcast(event)
+      }
+
+      if (assistantCompletedEvent) {
+        await this.persistSessionMemoryAfterTurn({
+          sessionId,
+          preparedMemory: sessionMemory,
+          priorEvents: snapshot.events,
+          currentTurnEvents: [userEvent, ...turnEvents],
+          signal: abortController.signal
+        })
       }
 
       if (shouldGenerateTitle) {
@@ -393,5 +440,132 @@ export class ChatSupervisor {
     })
     await this.store.appendEvent(sessionId, event)
     this.broadcast(event)
+  }
+
+  private async prepareSessionMemory(
+    sessionId: string,
+    events: ChatEvent[],
+    signal?: AbortSignal
+  ): Promise<PreparedSessionMemory> {
+    const existing = await this.store.getSessionMemory(sessionId)
+    if (!existing) {
+      const bootstrapEvents = selectSummarizableEvents(events)
+      if (bootstrapEvents.length === 0) {
+        return { summary: null, updatedAt: 0, isReady: true }
+      }
+
+      try {
+        const summary = await this.sessionMemoryCompactor.bootstrapSessionMemory({
+          sessionId,
+          history: bootstrapEvents,
+          signal
+        })
+        if (!summary.trim()) {
+          return { summary: null, updatedAt: 0, isReady: false }
+        }
+
+        const updatedAt = getLatestTimestamp(bootstrapEvents)
+        await this.store.upsertSessionMemory(sessionId, summary, updatedAt)
+        return { summary, updatedAt, isReady: true }
+      } catch (error) {
+        console.warn('[session-memory] failed to bootstrap memory', error)
+        return { summary: null, updatedAt: 0, isReady: false }
+      }
+    }
+
+    const staleEvents = selectSummarizableEvents(events, existing.updatedAt)
+    if (staleEvents.length === 0) {
+      return {
+        summary: existing.summary,
+        updatedAt: existing.updatedAt,
+        isReady: true
+      }
+    }
+
+    try {
+      const summary = await this.sessionMemoryCompactor.extendSessionMemory({
+        sessionId,
+        previousSummary: existing.summary,
+        historyDelta: staleEvents,
+        signal
+      })
+      if (!summary.trim()) {
+        return {
+          summary: existing.summary,
+          updatedAt: existing.updatedAt,
+          isReady: false
+        }
+      }
+
+      const updatedAt = getLatestTimestamp(staleEvents)
+      await this.store.upsertSessionMemory(sessionId, summary, updatedAt)
+      return { summary, updatedAt, isReady: true }
+    } catch (error) {
+      console.warn('[session-memory] failed to catch up memory', error)
+      return {
+        summary: existing.summary,
+        updatedAt: existing.updatedAt,
+        isReady: false
+      }
+    }
+  }
+
+  private async persistSessionMemoryAfterTurn({
+    sessionId,
+    preparedMemory,
+    priorEvents,
+    currentTurnEvents,
+    signal
+  }: {
+    sessionId: string
+    preparedMemory: PreparedSessionMemory
+    priorEvents: ChatEvent[]
+    currentTurnEvents: ChatEvent[]
+    signal?: AbortSignal
+  }): Promise<SessionMemoryRecord | null> {
+    const turnDelta = selectSummarizableEvents(currentTurnEvents)
+    if (preparedMemory.summary && preparedMemory.isReady) {
+      if (turnDelta.length === 0) {
+        return null
+      }
+
+      try {
+        const summary = await this.sessionMemoryCompactor.extendSessionMemory({
+          sessionId,
+          previousSummary: preparedMemory.summary,
+          historyDelta: turnDelta,
+          signal
+        })
+        if (!summary.trim()) {
+          return null
+        }
+
+        return this.store.upsertSessionMemory(sessionId, summary, getLatestTimestamp(turnDelta))
+      } catch (error) {
+        console.warn('[session-memory] failed to update memory after turn', error)
+        return null
+      }
+    }
+
+    const fullHistory = selectSummarizableEvents([...priorEvents, ...currentTurnEvents])
+    if (fullHistory.length === 0) {
+      return null
+    }
+
+    try {
+      const summary = await this.sessionMemoryCompactor.bootstrapSessionMemory({
+        sessionId,
+        history: fullHistory,
+        signal
+      })
+      if (!summary.trim()) {
+        return null
+      }
+
+      return this.store.upsertSessionMemory(sessionId, summary, getLatestTimestamp(fullHistory))
+    } catch (error) {
+      console.warn('[session-memory] failed to rebuild memory after turn', error)
+      return null
+    }
   }
 }

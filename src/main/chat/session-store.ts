@@ -23,6 +23,12 @@ type SessionStoreOptions = {
   database?: Database.Database
 }
 
+export type SessionMemoryRecord = {
+  sessionId: string
+  summary: string
+  updatedAt: number
+}
+
 const compactText = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
 export const clampSessionTitle = (value: string): string => {
@@ -369,6 +375,46 @@ export class ChatSessionStore {
   async openSession(sessionId: string): Promise<SessionSnapshot> {
     const [meta, events] = await Promise.all([this.readMeta(sessionId), this.readEvents(sessionId)])
     return { meta, events }
+  }
+
+  async getSessionMemory(sessionId: string): Promise<SessionMemoryRecord | null> {
+    const row = this.db
+      .prepare(
+        `
+        SELECT sessionId, summary, updatedAt
+        FROM session_memories
+        WHERE sessionId = ?
+        `
+      )
+      .get(sessionId) as SessionMemoryRecord | undefined
+
+    return row ?? null
+  }
+
+  async upsertSessionMemory(
+    sessionId: string,
+    summary: string,
+    updatedAt: number = Date.now()
+  ): Promise<SessionMemoryRecord> {
+    const record: SessionMemoryRecord = {
+      sessionId,
+      summary,
+      updatedAt
+    }
+
+    this.db
+      .prepare(
+        `
+        INSERT INTO session_memories (sessionId, summary, updatedAt)
+        VALUES (@sessionId, @summary, @updatedAt)
+        ON CONFLICT(sessionId) DO UPDATE SET
+          summary = excluded.summary,
+          updatedAt = excluded.updatedAt
+        `
+      )
+      .run(record)
+
+    return record
   }
 
   async listSessions(): Promise<SessionMeta[]> {
@@ -873,6 +919,7 @@ export class ChatSessionStore {
 
   async deleteSession(sessionId: string): Promise<void> {
     const transaction = this.db.transaction((targetSessionId: string) => {
+      this.db.prepare('DELETE FROM session_memories WHERE sessionId = ?').run(targetSessionId)
       this.db.prepare('DELETE FROM chat_events WHERE sessionId = ?').run(targetSessionId)
       this.db.prepare('DELETE FROM chat_sessions WHERE id = ?').run(targetSessionId)
     })

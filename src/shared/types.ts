@@ -135,7 +135,7 @@ export interface ConnectionCheckResult {
   preview: string
 }
 
-export type UsageRecordKind = 'chat_turn' | 'title_gen' | 'connection_test'
+export type UsageRecordKind = 'chat_turn' | 'title_gen' | 'connection_test' | 'session_memory'
 
 export interface UsageOverview {
   todayTokenUsage: number

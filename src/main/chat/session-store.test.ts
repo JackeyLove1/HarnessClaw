@@ -56,6 +56,36 @@ describe('ChatSessionStore', () => {
     expect(snapshot.events.some((event) => event.type === 'user.message')).toBe(true)
   })
 
+  it('stores hidden session memory separately from the visible snapshot', async () => {
+    const store = createStore()
+    const meta = await store.createSession('session-memory')
+
+    await store.upsertSessionMemory(meta.id, '## Goal\nShip hidden memory', 1_234)
+
+    const memory = await store.getSessionMemory(meta.id)
+    const snapshot = await store.openSession(meta.id)
+
+    expect(memory).toEqual({
+      sessionId: meta.id,
+      summary: '## Goal\nShip hidden memory',
+      updatedAt: 1_234
+    })
+    expect(snapshot.events).toHaveLength(1)
+    expect(
+      snapshot.events.some((event) => JSON.stringify(event).includes('Ship hidden memory'))
+    ).toBe(false)
+  })
+
+  it('removes session memory when deleting a session', async () => {
+    const store = createStore()
+    const meta = await store.createSession('session-delete-memory')
+
+    await store.upsertSessionMemory(meta.id, '## Goal\nDelete me', 5_000)
+    await store.deleteSession(meta.id)
+
+    await expect(store.getSessionMemory(meta.id)).resolves.toBeNull()
+  })
+
   it('searches sessions by message text with full-text index', async () => {
     const store = createStore()
     const economicSession = await store.createSession('session-economic')
