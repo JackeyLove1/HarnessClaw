@@ -18,6 +18,7 @@ import type {
   OpenSession,
   PauseCronJob,
   ReadClipboardImage,
+  ResolveChatAttachmentDataUrl,
   ReadNote,
   RemoveCronJob,
   ResumeCronJob,
@@ -54,6 +55,7 @@ declare global {
       deleteSession: DeleteSession
       sendMessage: SendMessage
       readClipboardImage: ReadClipboardImage
+      resolveChatAttachmentDataUrl: ResolveChatAttachmentDataUrl
       cancelRun: CancelRun
       subscribeChatEvents: SubscribeChatEvents
       windowMinimize: WindowMinimize

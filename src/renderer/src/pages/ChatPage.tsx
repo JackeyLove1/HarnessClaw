@@ -548,6 +548,7 @@ const TranscriptItem = ({
   copied,
   feedback,
   disableRetry,
+  resolveUserAttachmentSrc,
   onCopy,
   onFeedback,
   onRetry
@@ -557,6 +558,7 @@ const TranscriptItem = ({
   copied: boolean
   feedback: AssistantFeedback
   disableRetry: boolean
+  resolveUserAttachmentSrc: (attachment: ChatImageAttachment) => string
   onCopy: () => void
   onFeedback: (value: Exclude<AssistantFeedback, null>) => void
   onRetry: () => void
@@ -570,7 +572,7 @@ const TranscriptItem = ({
             <UserAttachmentGrid
               attachments={message.attachments.map((attachment) => ({
                 ...attachment,
-                src: toFileSrc(attachment.filePath)
+                src: resolveUserAttachmentSrc(attachment)
               }))}
             />
           ) : null}
@@ -914,6 +916,9 @@ export const ChatPage = () => {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [titleDraft, setTitleDraft] = useState('')
   const [copiedAssistantId, setCopiedAssistantId] = useState<string | null>(null)
+  const [resolvedAttachmentSrcById, setResolvedAttachmentSrcById] = useState<
+    Record<string, string>
+  >({})
   const [assistantFeedbackByKey, setAssistantFeedbackByKey] = useState<
     Record<string, AssistantFeedback>
   >({})
@@ -925,6 +930,7 @@ export const ChatPage = () => {
   const shouldFocusComposerRef = useRef(false)
   const copyFeedbackTimeoutRef = useRef<number | null>(null)
   const shouldAutoScrollRef = useRef(true)
+  const resolvedAttachmentAttemptedIdsRef = useRef<Set<string>>(new Set())
   const hasTranscript = state.transcript.length > 0
 
   const visibleSessions = useMemo(() => selectVisibleSessions(sessions), [sessions])
@@ -1001,6 +1007,11 @@ export const ChatPage = () => {
   }, [currentSessionId])
 
   useEffect(() => {
+    setResolvedAttachmentSrcById({})
+    resolvedAttachmentAttemptedIdsRef.current.clear()
+  }, [currentSessionId])
+
+  useEffect(() => {
     if (pendingImagesRef.current.length === 0) {
       return
     }
@@ -1061,6 +1072,59 @@ export const ChatPage = () => {
 
     return () => cancelAnimationFrame(rafId)
   }, [currentSessionId, hasTranscript])
+
+  useEffect(() => {
+    const pendingAttachments = state.transcript
+      .flatMap((entry) => (entry.kind === 'user' ? entry.attachments : []))
+      .filter(
+        (attachment) =>
+          !resolvedAttachmentSrcById[attachment.id] &&
+          !resolvedAttachmentAttemptedIdsRef.current.has(attachment.id)
+      )
+
+    if (pendingAttachments.length === 0) {
+      return
+    }
+
+    for (const attachment of pendingAttachments) {
+      resolvedAttachmentAttemptedIdsRef.current.add(attachment.id)
+    }
+
+    let disposed = false
+    const resolveAttachments = async (): Promise<void> => {
+      const resolvedEntries = await Promise.all(
+        pendingAttachments.map(async (attachment) => ({
+          id: attachment.id,
+          src: await window.context.resolveChatAttachmentDataUrl(
+            attachment.filePath,
+            attachment.mimeType
+          )
+        }))
+      )
+
+      if (disposed) {
+        return
+      }
+
+      const resolvedMap = resolvedEntries.reduce<Record<string, string>>((accumulator, item) => {
+        if (item.src) {
+          accumulator[item.id] = item.src
+        }
+        return accumulator
+      }, {})
+
+      if (Object.keys(resolvedMap).length === 0) {
+        return
+      }
+
+      setResolvedAttachmentSrcById((current) => ({ ...current, ...resolvedMap }))
+    }
+
+    void resolveAttachments()
+    return () => {
+      disposed = true
+    }
+  }, [resolvedAttachmentSrcById, state.transcript])
 
   useEffect(() => {
     let disposed = false
@@ -1663,6 +1727,9 @@ export const ChatPage = () => {
     }
   }
 
+  const resolveUserAttachmentSrc = (attachment: ChatImageAttachment): string =>
+    resolvedAttachmentSrcById[attachment.id] ?? toFileSrc(attachment.filePath)
+
   return (
     <>
       <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-[#dddddd] bg-[#efefef] px-3 py-4">
@@ -1757,6 +1824,7 @@ export const ChatPage = () => {
                     copied={entry.kind === 'assistant' && copiedAssistantId === entry.id}
                     feedback={feedbackKey ? (assistantFeedbackByKey[feedbackKey] ?? null) : null}
                     disableRetry={!retryPrompt || state.isRunning}
+                    resolveUserAttachmentSrc={resolveUserAttachmentSrc}
                     onCopy={() => {
                       if (entry.kind !== 'assistant') return
                       void handleCopyAssistant(entry)

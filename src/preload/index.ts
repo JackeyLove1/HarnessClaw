@@ -19,6 +19,7 @@ import type {
   OpenSession,
   PauseCronJob,
   ReadClipboardImage,
+  ResolveChatAttachmentDataUrl,
   ReadNote,
   RemoveCronJob,
   ResumeCronJob,
@@ -89,6 +90,11 @@ try {
       invoke<Awaited<ReturnType<SendMessage>>>('chat:sendMessage', ...args),
     readClipboardImage: (...args: Parameters<ReadClipboardImage>) =>
       invoke<Awaited<ReturnType<ReadClipboardImage>>>('chat:readClipboardImage', ...args),
+    resolveChatAttachmentDataUrl: (...args: Parameters<ResolveChatAttachmentDataUrl>) =>
+      invoke<Awaited<ReturnType<ResolveChatAttachmentDataUrl>>>(
+        'chat:resolveAttachmentDataUrl',
+        ...args
+      ),
     cancelRun: (...args: Parameters<CancelRun>) =>
       invoke<Awaited<ReturnType<CancelRun>>>('chat:cancelRun', ...args),
     subscribeChatEvents,

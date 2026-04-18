@@ -27,7 +27,8 @@ import type {
   WriteNote
 } from '@shared/types'
 import { BrowserWindow, app, clipboard, ipcMain, powerMonitor, shell } from 'electron'
-import { join } from 'node:path'
+import { join, relative, resolve } from 'node:path'
+import { readFile } from 'node:fs/promises'
 import icon from '../../resources/icon.png?asset'
 import { CronScheduler, CronService, setCronService } from './agent/cron'
 import { ChatSupervisor } from './chat/supervisor'
@@ -71,6 +72,33 @@ const readClipboardImage = (): ClipboardImagePayload | null => {
     sizeBytes: buffer.length,
     width,
     height
+  }
+}
+
+const CHAT_ATTACHMENTS_DIRNAME = 'chat-attachments'
+
+const resolveChatAttachmentDataUrl = async (
+  filePath: string,
+  mimeType: ClipboardImagePayload['mimeType']
+): Promise<string | null> => {
+  const attachmentsRoot = resolve(app.getPath('userData'), CHAT_ATTACHMENTS_DIRNAME)
+  const targetPath = resolve(filePath)
+  const relativePath = relative(attachmentsRoot, targetPath)
+  const isInsideAttachmentsRoot =
+    relativePath.length > 0 && !relativePath.startsWith('..') && !relativePath.includes(':')
+
+  if (!isInsideAttachmentsRoot) {
+    return null
+  }
+
+  try {
+    const buffer = await readFile(targetPath)
+    if (buffer.length === 0) {
+      return null
+    }
+    return `data:${mimeType};base64,${buffer.toString('base64')}`
+  } catch {
+    return null
   }
 }
 
@@ -285,6 +313,11 @@ function registerChatIpc(): void {
     await chatSupervisor?.sendMessage(sessionId, input)
   })
   ipcMain.handle('chat:readClipboardImage', () => readClipboardImage())
+  ipcMain.handle(
+    'chat:resolveAttachmentDataUrl',
+    (_event, filePath: string, mimeType: ClipboardImagePayload['mimeType']) =>
+      resolveChatAttachmentDataUrl(filePath, mimeType)
+  )
   ipcMain.handle('chat:cancelRun', async (_event, sessionId: string) => {
     await chatSupervisor?.cancelRun(sessionId)
   })

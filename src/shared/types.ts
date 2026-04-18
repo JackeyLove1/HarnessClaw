@@ -39,6 +39,10 @@ export interface ClipboardImagePayload {
   height: number
 }
 export type ReadClipboardImage = () => Promise<ClipboardImagePayload | null>
+export type ResolveChatAttachmentDataUrl = (
+  filePath: string,
+  mimeType: ChatImageAttachment['mimeType']
+) => Promise<string | null>
 export type CancelRun = (sessionId: string) => Promise<void>
 
 export type CronScheduleKind = 'delay' | 'interval' | 'cron' | 'datetime'
