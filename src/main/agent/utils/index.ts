@@ -5,6 +5,7 @@ export {
   resolveDeepClawPath,
   resolveDefaultWorkingDir,
   resolveEnvFilePath,
+  resolveLogsDir,
   resolveMemoriesDir,
   resolveSkillsDir,
   resolveTmpDir

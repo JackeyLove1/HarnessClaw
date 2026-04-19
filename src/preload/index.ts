@@ -29,6 +29,7 @@ import type {
   RunCronJob,
   SaveAiChannelSettings,
   SearchSessions,
+  SearchSkills,
   SendMessage,
   SetActiveAiChannel,
   SubscribeChatEvents,
@@ -40,7 +41,9 @@ import type {
   WindowIsMaximized,
   WindowMinimize,
   WindowToggleMaximize,
-  WriteNote
+  WriteNote,
+  InstallSkill,
+  ListSkills
 } from '@shared/types'
 import { contextBridge, ipcRenderer } from 'electron'
 
@@ -159,6 +162,12 @@ try {
       invoke<Awaited<ReturnType<ListSkillUsageRecords>>>('settings:listSkillUsageRecords', ...args),
     listInstalledSkills: (...args: Parameters<ListInstalledSkills>) =>
       invoke<Awaited<ReturnType<ListInstalledSkills>>>('chat:listInstalledSkills', ...args),
+    searchSkills: (...args: Parameters<SearchSkills>) =>
+      invoke<Awaited<ReturnType<SearchSkills>>>('chat:searchSkills', ...args),
+    installSkill: (...args: Parameters<InstallSkill>) =>
+      invoke<Awaited<ReturnType<InstallSkill>>>('chat:installSkill', ...args),
+    listSkills: (...args: Parameters<ListSkills>) =>
+      invoke<Awaited<ReturnType<ListSkills>>>('chat:listSkills', ...args),
     listCronJobs: (...args: Parameters<ListCronJobs>) =>
       invoke<Awaited<ReturnType<ListCronJobs>>>('cron:listJobs', ...args),
     listCronRuns: (...args: Parameters<ListCronRuns>) =>

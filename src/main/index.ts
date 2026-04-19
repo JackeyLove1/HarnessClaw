@@ -377,6 +377,27 @@ function registerChatIpc(): void {
       return [...dedupedSkills.values()]
     }
   )
+  ipcMain.handle(
+    'chat:searchSkills',
+    async (_event, query: string, options?: { limit?: number; timeoutMs?: number }) => {
+      const { searchSkills } = await import('./agent/utils/skillhub')
+      return searchSkills(query, options ?? {})
+    }
+  )
+  ipcMain.handle(
+    'chat:installSkill',
+    async (_event, slug: string, options?: { force?: boolean }) => {
+      const { installSkill } = await import('./agent/utils/skillhub')
+      return installSkill(slug, options ?? {})
+    }
+  )
+  ipcMain.handle(
+    'chat:listSkills',
+    async (_event, page?: number, pageSize?: number, options?: { category?: string; keyword?: string; sortBy?: string; order?: string }) => {
+      const { listSkills } = await import('./agent/utils/skillhub')
+      return listSkills(page, pageSize, options)
+    }
+  )
 }
 
 function registerSettingsIpc(): void {

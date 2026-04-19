@@ -1,12 +1,11 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import https from 'node:https'
-import http from 'node:http'
-import { URL } from 'node:url'
-import crypto from 'node:crypto'
-import { resolveSkillsDir } from './paths'
-import { execSync } from 'node:child_process'
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import os from 'node:os';
+import path from 'node:path';
+import { URL } from 'node:url';
+import { resolveSkillsDir } from './paths';
 
 // Default configuration from Python skillhub CLI
 const CLI_VERSION = '2026.3.3'
@@ -14,6 +13,7 @@ const CLI_USER_AGENT = `skills-store-cli/${CLI_VERSION}`
 const DEFAULT_SEARCH_URL = 'https://lightmake.site/api/v1/search'
 const DEFAULT_PRIMARY_DOWNLOAD_URL_TEMPLATE =
   'https://lightmake.site/api/v1/download?slug={slug}'
+const SKILLHUB_CN_API = 'https://api.skillhub.cn/api/skills'
 const LOCKFILE_NAME = '.skills_store_lock.json'
 
 const SKILLS_INSTALL_ROOT = resolveSkillsDir()
@@ -30,6 +30,40 @@ export interface SearchResponse {
   query: string
   count: number
   results: SkillSearchResult[]
+}
+
+export interface SkillHubCnSkill {
+  category: string
+  created_at: number
+  description: string
+  description_zh: string
+  downloads: number
+  homepage: string
+  iconUrl: string | null
+  installs: number
+  name: string
+  ownerName: string
+  score: number
+  slug: string
+  source: string
+  stars: number
+  tags: string[] | null
+  updated_at: number
+  version: string
+}
+
+export interface SkillHubCnResponse {
+  code: number
+  data: {
+    skills: SkillHubCnSkill[]
+    total: number
+  }
+  message: string
+}
+
+export interface ListSkillsResult {
+  skills: SkillHubCnSkill[]
+  total: number
 }
 
 export interface InstallResult {
@@ -130,7 +164,15 @@ function downloadFile(urlStr: string, destPath: string, timeoutMs = 30000): Prom
 
       const file = fs.createWriteStream(destPath)
       res.pipe(file)
-      file.on('finish', () => file.close(resolve))
+      file.on('finish', () => {
+        file.close((err) => {
+          if (err) {
+            reject(err)
+            return
+          }
+          resolve()
+        })
+      })
       file.on('error', reject)
     })
 
@@ -141,16 +183,6 @@ function downloadFile(urlStr: string, destPath: string, timeoutMs = 30000): Prom
     })
 
     req.end()
-  })
-}
-
-function sha256File(filePath: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const hash = crypto.createHash('sha256')
-    const stream = fs.createReadStream(filePath)
-    stream.on('data', (chunk) => hash.update(chunk))
-    stream.on('end', () => resolve(hash.digest('hex')))
-    stream.on('error', reject)
   })
 }
 
@@ -235,6 +267,51 @@ export async function searchSkills(
     query,
     count: skillsList.length,
     results: skillsList.slice(0, limit)
+  }
+}
+
+/**
+ * List skills from skillhub.cn API with pagination and filtering.
+ */
+export async function listSkills(
+  page: number = 1,
+  pageSize: number = 24,
+  options: {
+    category?: string
+    keyword?: string
+    sortBy?: string
+    order?: string
+    timeoutMs?: number
+  } = {}
+): Promise<ListSkillsResult> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  })
+  if (options.category) {
+    params.set('category', options.category)
+  }
+  if (options.keyword) {
+    params.set('keyword', options.keyword)
+  }
+  if (options.sortBy) {
+    params.set('sortBy', options.sortBy)
+  }
+  if (options.order) {
+    params.set('order', options.order)
+  }
+  const apiUrl = `${SKILLHUB_CN_API}?${params.toString()}`
+  // console.log(`[skillhub] Listing skills: ${apiUrl}`)
+  const response = await fetchJson<SkillHubCnResponse>(apiUrl, options.timeoutMs ?? 15000)
+  // console.log("resp： ", response)
+
+  if (response.code !== 0) {
+    throw new Error(`API error: ${response.message}`)
+  }
+
+  return {
+    skills: response.data.skills,
+    total: response.data.total
   }
 }
 

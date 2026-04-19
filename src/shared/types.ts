@@ -262,3 +262,55 @@ export type ListToolCallRecords = (limit?: number) => Promise<ToolCallUsageRecor
 export type ListToolStats = (limit?: number) => Promise<ToolStatsRecord[]>
 export type ListSkillUsageRecords = (limit?: number) => Promise<SkillUsageRecord[]>
 export type ListInstalledSkills = () => Promise<InstalledSkillSummary[]>
+export interface SearchSkillsOptions {
+  searchUrl?: string
+  limit?: number
+  timeoutMs?: number
+}
+export interface InstallSkillOptions {
+  installRoot?: string
+  force?: boolean
+  primaryDownloadUrlTemplate?: string
+  searchUrl?: string
+  searchLimit?: number
+  searchTimeoutMs?: number
+}
+export interface SkillSearchResult {
+  slug: string
+  name: string
+  description: string
+  summary: string
+  version: string
+}
+export type SearchSkills = (
+  query: string,
+  options?: SearchSkillsOptions
+) => Promise<{ query: string; count: number; results: SkillSearchResult[] }>
+export type InstallSkill = (
+  slug: string,
+  options?: InstallSkillOptions
+) => Promise<{ success: boolean; slug: string; targetDir: string; version?: string; error?: string }>
+export interface SkillHubCnSkill {
+  category: string
+  created_at: number
+  description: string
+  description_zh: string
+  downloads: number
+  homepage: string
+  iconUrl: string | null
+  installs: number
+  name: string
+  ownerName: string
+  score: number
+  slug: string
+  source: string
+  stars: number
+  tags: string[] | null
+  updated_at: number
+  version: string
+}
+export type ListSkills = (
+  page?: number,
+  pageSize?: number,
+  options?: { category?: string; keyword?: string; sortBy?: string; order?: string }
+) => Promise<{ skills: SkillHubCnSkill[]; total: number }>

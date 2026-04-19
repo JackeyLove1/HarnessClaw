@@ -3,7 +3,8 @@ import {
   CircleHelp,
   MessageCircleMore,
   MonitorSmartphone,
-  Settings
+  Settings,
+  Sparkles
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
@@ -69,6 +70,11 @@ export const AppShell = () => {
                   label="任务"
                   to="/tasks"
                   icon={<CircleCheckBig className={navIconClassName} />}
+                />
+                <NavRailLink
+                  label="技能"
+                  to="/skills"
+                  icon={<Sparkles className={navIconClassName} />}
                 />
               </div>
             </div>

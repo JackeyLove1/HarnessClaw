@@ -27,6 +27,10 @@ export function resolveSkillsDir(): string {
   return resolveDeepClawPath('skills')
 }
 
+export function resolveLogsDir(): string {
+  return resolveDeepClawPath('logs')
+}
+
 export function resolveEnvFilePath(): string {
   return resolveDeepClawPath('.env')
 }

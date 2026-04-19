@@ -12,6 +12,9 @@ import type {
   ListCronRuns,
   ListInstalledSkills,
   ListSkillUsageRecords,
+  ListSkills,
+  SearchSkills,
+  InstallSkill,
   ListToolCallRecords,
   ListToolStats,
   ListUsageRecords,
@@ -77,6 +80,9 @@ declare global {
       listToolStats: ListToolStats
       listSkillUsageRecords: ListSkillUsageRecords
       listInstalledSkills: ListInstalledSkills
+      searchSkills: SearchSkills
+      installSkill: InstallSkill
+      listSkills: ListSkills
       listCronJobs: ListCronJobs
       listCronRuns: ListCronRuns
       createCronJob: CreateCronJob
