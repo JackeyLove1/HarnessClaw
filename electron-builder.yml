@@ -15,6 +15,10 @@ extraResources:
     to: skills/default
     filter:
       - '**/*'
+  - from: src/scripts
+    to: scripts
+    filter:
+      - '**/*'
 asarUnpack:
   - resources/**
   - node_modules/better-sqlite3/**

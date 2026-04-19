@@ -1,9 +1,13 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { type BrowserWindow } from 'electron'
+import { type BrowserWindow, app } from 'electron'
 
-const SCRIPTS_DIR = join(__dirname, '../../scripts')
+const SCRIPTS_DIR_CANDIDATES = app.isPackaged
+  ? [join(process.resourcesPath, 'scripts')]
+  : [
+      join(__dirname, '../../../src/scripts') // out/main/../../../src/scripts
+    ]
 
 type ScriptEvent =
   | { type: 'start'; script: string }
@@ -17,24 +21,28 @@ function sendToRenderer(win: BrowserWindow, event: ScriptEvent): void {
   }
 }
 
-function resolveScript(): { command: string; args: string[]; script: string } | null {
-  if (process.platform === 'win32') {
-    const ps1 = join(SCRIPTS_DIR, 'pre-install.ps1')
-    if (existsSync(ps1)) {
-      return {
-        command: 'powershell.exe',
-        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1],
-        script: ps1
+function resolveScript(): { command: string; args: string[]; script: string; cwd: string } | null {
+  for (const dir of SCRIPTS_DIR_CANDIDATES) {
+    if (process.platform === 'win32') {
+      const ps1 = join(dir, 'pre-install.ps1')
+      if (existsSync(ps1)) {
+        return {
+          command: 'powershell.exe',
+          args: ['-NoProfile', '-ExecutionPolicy', '-Bypass', '-File', ps1],
+          script: ps1,
+          cwd: dir
+        }
       }
     }
-  }
 
-  const sh = join(SCRIPTS_DIR, 'pre-install.sh')
-  if (existsSync(sh)) {
-    return {
-      command: '/bin/bash',
-      args: [sh],
-      script: sh
+    const sh = join(dir, 'pre-install.sh')
+    if (existsSync(sh)) {
+      return {
+        command: '/bin/bash',
+        args: [sh],
+        script: sh,
+        cwd: dir
+      }
     }
   }
 
@@ -55,12 +63,12 @@ export function runPreInstallScript(win: BrowserWindow): void {
     return
   }
 
-  const { command, args, script } = resolved
+  const { command, args, script, cwd } = resolved
   console.info(`[script-runner] spawning: ${command} ${args.join(' ')}`)
   sendToRenderer(win, { type: 'start', script })
 
   const child = spawn(command, args, {
-    cwd: SCRIPTS_DIR,
+    cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: false
   })

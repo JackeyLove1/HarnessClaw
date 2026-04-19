@@ -7,40 +7,21 @@ export const LOG_MAX_FILES = 10
 
 const ARCHIVED_LOG_PATTERN = /-\d{8}T\d{6}\.\d{3}Z(?:-\d+)?\.log$/i
 
-interface LogPathMessage {
-  variables?: {
-    processType?: string
-  }
-}
-
 const pad = (value: number, width = 2): string => value.toString(10).padStart(width, '0')
 
-const sanitizeProcessType = (processType?: string): string => {
-  if (!processType) {
-    return 'main'
-  }
-
-  const normalized = processType.trim().toLowerCase()
-  switch (normalized) {
-    case 'browser':
-    case 'main':
-      return 'main'
-    default:
-      return normalized.replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'main'
-  }
+export const resolveProcessLogFileName = (date = new Date()): string => {
+  const y = date.getUTCFullYear().toString(10)
+  const m = (date.getUTCMonth() + 1).toString(10).padStart(2, '0')
+  const d = date.getUTCDate().toString(10).padStart(2, '0')
+  return `deepclaw-${y}-${m}-${d}.log`
 }
 
-export const resolveProcessLogFileName = (processType?: string): string =>
-  `${sanitizeProcessType(processType)}.log`
-
 export const resolveManagedLogPath = (
-  message?: LogPathMessage,
+  _message?: unknown,
   logsDir = resolveLogsDir()
 ): string => {
   mkdirSync(logsDir, { recursive: true })
-  const processType =
-    typeof message?.variables?.processType === 'string' ? message.variables.processType : undefined
-  return path.join(logsDir, resolveProcessLogFileName(processType))
+  return path.join(logsDir, resolveProcessLogFileName())
 }
 
 export const formatArchiveTimestamp = (date = new Date()): string =>
