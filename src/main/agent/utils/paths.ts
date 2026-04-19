@@ -19,6 +19,10 @@ export function resolveTmpDir(): string {
   return resolveDeepClawPath('tmp')
 }
 
+export function resolveMemoriesDir(): string {
+  return resolveDeepClawPath('memories')
+}
+
 export function resolveSkillsDir(): string {
   return resolveDeepClawPath('skills')
 }

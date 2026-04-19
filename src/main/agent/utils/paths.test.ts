@@ -8,6 +8,7 @@ import {
   resolveDeepClawPath,
   resolveDefaultWorkingDir,
   resolveEnvFilePath,
+  resolveMemoriesDir,
   resolveSkillsDir,
   resolveTmpDir
 } from './paths'
@@ -26,6 +27,7 @@ describe('DeepClaw path utils', () => {
     )
     expect(resolveDefaultWorkingDir()).toBe(path.join('C:', 'Users', 'tester', '.deepclaw'))
     expect(resolveTmpDir()).toBe(path.join('C:', 'Users', 'tester', '.deepclaw', 'tmp'))
+    expect(resolveMemoriesDir()).toBe(path.join('C:', 'Users', 'tester', '.deepclaw', 'memories'))
     expect(resolveSkillsDir()).toBe(path.join('C:', 'Users', 'tester', '.deepclaw', 'skills'))
     expect(resolveEnvFilePath()).toBe(path.join('C:', 'Users', 'tester', '.deepclaw', '.env'))
     expect(resolveDatabasePath()).toBe(

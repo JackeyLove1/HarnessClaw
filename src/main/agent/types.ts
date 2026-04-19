@@ -25,6 +25,7 @@ export type RunTurnArgs = {
   userText: string
   hasUserContent?: boolean
   selectedSkills?: string[]
+  persistentMemory?: string | null
   sessionMemory?: string | null
   history?: ChatEvent[]
   signal?: AbortSignal

@@ -33,6 +33,7 @@ const buildRuntime = (
     userText: string
     hasUserContent?: boolean
     selectedSkills?: string[]
+    persistentMemory?: string | null
     sessionMemory?: string | null
     history: ChatEvent[]
     signal: AbortSignal
@@ -106,6 +107,7 @@ describe('ChatSupervisor session memory flow', () => {
     })
 
     const runtime = buildRuntime(async function* (args) {
+      expect(args.persistentMemory).toBeNull()
       expect(args.sessionMemory).toBe('bootstrapped summary')
       expect(args.history).toHaveLength(1)
       yield* buildAssistantEvents(args.sessionId)
@@ -142,6 +144,7 @@ describe('ChatSupervisor session memory flow', () => {
     await store.upsertSessionMemory(session.id, 'existing summary', 10_000)
 
     const runtime = buildRuntime(async function* (args) {
+      expect(args.persistentMemory).toBeNull()
       expect(args.sessionMemory).toBe('existing summary')
       expect(args.history).toHaveLength(1)
       yield* buildAssistantEvents(args.sessionId)
@@ -195,6 +198,7 @@ describe('ChatSupervisor session memory flow', () => {
     })
 
     const runtime = buildRuntime(async function* (args) {
+      expect(args.persistentMemory).toBeNull()
       expect(args.sessionMemory).toBeNull()
       expect(args.history.length).toBeGreaterThan(1)
       yield* buildAssistantEvents(args.sessionId)
@@ -217,5 +221,41 @@ describe('ChatSupervisor session memory flow', () => {
     const memory = await store.getSessionMemory(session.id)
     expect(compactor.bootstrapSessionMemory).toHaveBeenCalledTimes(2)
     expect(memory?.summary).toBe('rebuilt summary')
+  })
+
+  it('freezes persistent memory per chat session and reloads it for a new session', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
+    process.env.NOTEMARK_MODEL = 'claude-sonnet-4-5'
+
+    const store = createStore()
+    const firstSession = await store.createSession('session-persistent-memory-1')
+    const secondSession = await store.createSession('session-persistent-memory-2')
+    const prompts = ['MEMORY SNAPSHOT V1', 'MEMORY SNAPSHOT V2']
+    const provider = {
+      getPromptSnapshot: vi.fn(async () => prompts.shift() ?? null)
+    }
+
+    const runtime = buildRuntime(async function* (args) {
+      expect(args.persistentMemory).toBe(
+        args.sessionId === firstSession.id ? 'MEMORY SNAPSHOT V1' : 'MEMORY SNAPSHOT V2'
+      )
+      yield* buildAssistantEvents(args.sessionId)
+    })
+
+    const supervisor = new ChatSupervisor(store, {
+      runtime,
+      persistentMemoryProvider: provider,
+      sessionMemoryCompactor: {
+        bootstrapSessionMemory: vi.fn(async () => ''),
+        extendSessionMemory: vi.fn(async () => '')
+      }
+    })
+
+    await supervisor.sendMessage(firstSession.id, sendInput)
+    await supervisor.sendMessage(firstSession.id, sendInput)
+    await supervisor.sendMessage(secondSession.id, sendInput)
+
+    expect(provider.getPromptSnapshot).toHaveBeenCalledTimes(2)
   })
 })

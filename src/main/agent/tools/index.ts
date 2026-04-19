@@ -4,6 +4,7 @@ import { resolvePlatformShellKind } from '../utils'
 import { createCronTool } from './CronTool'
 import { createPatchTool, createReadFileTool, createWriteFileTool } from './FileSystemTool'
 import { createGetTimeTool } from './get-time'
+import { createMemoryTool } from './MemoryTool'
 import { createPowerShellTool, type PowerShellToolOptions } from './PowerShellTool'
 import { createScreenShotTool } from './ScreenShotTool'
 import { createTodoTool } from './TodoTool'
@@ -55,6 +56,7 @@ export function createReadOnlyTools(): Tool[] {
 
 const toolFactories: ToolFactory[] = [
   createGetTimeTool,
+  createMemoryTool,
   createReadFileTool,
   createWriteFileTool,
   createPatchTool,

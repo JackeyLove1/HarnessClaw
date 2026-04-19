@@ -23,6 +23,7 @@ import {
 } from '../agent/compaction'
 import { validateRuntimeConfig } from '../agent/config'
 import { createChatRuntime } from '../agent'
+import { getPersistentMemoryRepository } from '../agent/memory'
 import { removeSessionAttachmentDir, savePendingImageAttachments } from './image-attachments'
 
 type ActiveRun = {
@@ -41,6 +42,7 @@ type ChatRuntimeLike = {
     userText: string
     hasUserContent?: boolean
     selectedSkills?: string[]
+    persistentMemory?: string | null
     sessionMemory?: string | null
     history: ChatEvent[]
     signal: AbortSignal
@@ -76,16 +78,29 @@ export class ChatSupervisor {
 
   private readonly sessionMemoryCompactor: SessionMemoryCompactor
 
+  private readonly persistentMemoryProvider: {
+    getPromptSnapshot: () => Promise<string | null>
+  }
+
+  private readonly persistentMemorySnapshots = new Map<string, string | null>()
+
   constructor(
     store = new ChatSessionStore(),
     options: {
       runtime?: ChatRuntimeLike
       sessionMemoryCompactor?: SessionMemoryCompactor
+      persistentMemoryProvider?: {
+        getPromptSnapshot: () => Promise<string | null>
+      }
     } = {}
   ) {
     this.store = store
     this.runtime = options.runtime ?? createChatRuntime()
     this.sessionMemoryCompactor = options.sessionMemoryCompactor ?? createSessionMemoryCompactor()
+    const repository = getPersistentMemoryRepository()
+    this.persistentMemoryProvider = options.persistentMemoryProvider ?? {
+      getPromptSnapshot: async () => (await repository.createPromptSnapshot()).rendered
+    }
   }
 
   attachWindow(window: BrowserWindow): void {
@@ -166,6 +181,7 @@ export class ChatSupervisor {
       this.activeRuns.delete(sessionId)
     }
 
+    this.persistentMemorySnapshots.delete(sessionId)
     await this.store.deleteSession(sessionId)
     await removeSessionAttachmentDir(sessionId)
   }
@@ -194,11 +210,7 @@ export class ChatSupervisor {
     const trimmed = input.text.trim()
     const attachments = input.attachments ?? []
     const selectedSkills = Array.from(
-      new Set(
-        (input.skills ?? [])
-          .map((skillId) => skillId.trim())
-          .filter(Boolean)
-      )
+      new Set((input.skills ?? []).map((skillId) => skillId.trim()).filter(Boolean))
     )
 
     if (!trimmed && attachments.length === 0) {
@@ -224,6 +236,7 @@ export class ChatSupervisor {
       this.activeRuns.set(sessionId, { abortController })
 
       const snapshot = await this.store.openSession(sessionId)
+      const persistentMemory = await this.getPersistentMemoryPrompt(sessionId)
       const sessionMemory = await this.prepareSessionMemory(
         sessionId,
         snapshot.events,
@@ -262,6 +275,7 @@ export class ChatSupervisor {
         userText: trimmed,
         hasUserContent: Boolean(trimmed) || persistedAttachments.length > 0,
         selectedSkills,
+        persistentMemory,
         sessionMemory: sessionMemory.summary,
         history: sessionMemory.summary ? [userEvent] : [...snapshot.events, userEvent],
         signal: abortController.signal
@@ -516,6 +530,21 @@ export class ChatSupervisor {
         updatedAt: existing.updatedAt,
         isReady: false
       }
+    }
+  }
+
+  private async getPersistentMemoryPrompt(sessionId: string): Promise<string | null> {
+    if (this.persistentMemorySnapshots.has(sessionId)) {
+      return this.persistentMemorySnapshots.get(sessionId) ?? null
+    }
+
+    try {
+      const snapshot = (await this.persistentMemoryProvider.getPromptSnapshot())?.trim() || null
+      this.persistentMemorySnapshots.set(sessionId, snapshot)
+      return snapshot
+    } catch (error) {
+      console.warn('[persistent-memory] failed to load prompt snapshot', error)
+      return null
     }
   }
 

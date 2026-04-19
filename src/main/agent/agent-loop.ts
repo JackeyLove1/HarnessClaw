@@ -92,12 +92,15 @@ ${formatInstalledSkillsSection(installedSkills)}`
 
 const buildRuntimeSystemPrompt = (
   installedSkills: readonly InstalledSkill[],
+  persistentMemory?: string | null,
   sessionMemory?: string | null,
   selectedSkills: string[] = []
 ): string => {
   const basePrompt = buildSystemPrompt(installedSkills)
   const selectedSkillSet = new Set(selectedSkills.map((item) => item.trim()).filter(Boolean))
-  const selectedInstalledSkills = installedSkills.filter((skill) => selectedSkillSet.has(skill.skillId))
+  const selectedInstalledSkills = installedSkills.filter((skill) =>
+    selectedSkillSet.has(skill.skillId)
+  )
   const selectedSkillsSection =
     selectedInstalledSkills.length > 0
       ? [
@@ -108,18 +111,28 @@ const buildRuntimeSystemPrompt = (
           )
         ].join('\n')
       : ''
+  const persistentMemorySection = persistentMemory?.trim()
   const memory = sessionMemory?.trim()
+  const sections = [basePrompt]
 
-  if (!memory) {
-    return selectedSkillsSection ? `${basePrompt}\n\n${selectedSkillsSection}` : basePrompt
+  if (selectedSkillsSection) {
+    sections.push(selectedSkillsSection)
   }
 
-  return `${selectedSkillsSection ? `${basePrompt}\n\n${selectedSkillsSection}` : basePrompt}
+  if (persistentMemorySection) {
+    sections.push(`Persistent memory:\n${persistentMemorySection}`)
+  }
 
-Session memory:
+  if (!memory) {
+    return sections.join('\n\n')
+  }
+
+  sections.push(`Session memory:
 ${memory}
 
-Use the session memory as the authoritative summary of earlier turns. Do not ask the user to restate information that is already captured there unless it is ambiguous or stale.`
+Use the session memory as the authoritative summary of earlier turns. Do not ask the user to restate information that is already captured there unless it is ambiguous or stale.`)
+
+  return sections.join('\n\n')
 }
 
 const asFiniteNumber = (value: unknown): number => {
@@ -242,8 +255,17 @@ export class AnthropicChatRuntime implements ChatRuntime {
     })
   }
 
-  private getSystemPrompt(sessionMemory?: string | null, selectedSkills: string[] = []): string {
-    return buildRuntimeSystemPrompt(this.installedSkills, sessionMemory, selectedSkills)
+  private getSystemPrompt(
+    persistentMemory?: string | null,
+    sessionMemory?: string | null,
+    selectedSkills: string[] = []
+  ): string {
+    return buildRuntimeSystemPrompt(
+      this.installedSkills,
+      persistentMemory,
+      sessionMemory,
+      selectedSkills
+    )
   }
 
   async testConnection(): Promise<ConnectionTestResult> {
@@ -296,6 +318,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
     userText,
     hasUserContent = Boolean(String(userText ?? '').trim()),
     selectedSkills = [],
+    persistentMemory = null,
     sessionMemory = null,
     history = [],
     signal
@@ -349,7 +372,7 @@ export class AnthropicChatRuntime implements ChatRuntime {
         {
           model: config.model,
           max_tokens: 2048,
-          system: this.getSystemPrompt(sessionMemory, selectedSkills),
+          system: this.getSystemPrompt(persistentMemory, sessionMemory, selectedSkills),
           tools: anthropicTools,
           messages,
           stream: true

@@ -402,7 +402,7 @@ describe('AnthropicChatRuntime', () => {
     }
   })
 
-  it('injects session memory into the system prompt and only sends the latest user message', async () => {
+  it('injects persistent memory and session memory into the system prompt', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-key'
     process.env.NOTEMARK_MODEL_PROVIDER = 'anthropic'
     process.env.NOTEMARK_MODEL = 'claude-sonnet-4-5'
@@ -442,6 +442,7 @@ describe('AnthropicChatRuntime', () => {
     for await (const event of runtime.runTurn({
       sessionId: 's_memory',
       userText: 'Continue from the summary',
+      persistentMemory: 'MEMORY (your personal notes) [5% - 100/2200 chars]\nProject uses pnpm.',
       sessionMemory: '## Goal\nContinue the migration',
       history: [latestUserMessage]
     })) {
@@ -453,6 +454,8 @@ describe('AnthropicChatRuntime', () => {
       messages?: Array<{ role: string; content: unknown }>
     }
 
+    expect(firstCallArgs.system).toContain('Persistent memory:')
+    expect(firstCallArgs.system).toContain('Project uses pnpm.')
     expect(firstCallArgs.system).toContain('Session memory:')
     expect(firstCallArgs.system).toContain('## Goal\nContinue the migration')
     expect(firstCallArgs.messages).toEqual([
