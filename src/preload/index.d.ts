@@ -18,6 +18,7 @@ import type {
   ListSessions,
   OpenSession,
   PauseCronJob,
+  PickPromptFilePath,
   ReadClipboardImage,
   ReadCanvasArtifactHtml,
   ResolveChatAttachmentDataUrl,
@@ -57,6 +58,7 @@ declare global {
       deleteSession: DeleteSession
       sendMessage: SendMessage
       readClipboardImage: ReadClipboardImage
+      pickPromptFilePath: PickPromptFilePath
       resolveChatAttachmentDataUrl: ResolveChatAttachmentDataUrl
       readCanvasArtifactHtml: ReadCanvasArtifactHtml
       cancelRun: CancelRun

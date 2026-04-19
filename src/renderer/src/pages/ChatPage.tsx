@@ -1,88 +1,89 @@
 import type {
-  ChatCanvasArtifact,
-  ChatImageAttachment,
-  ChatToolArtifact,
-  SessionMeta
-} from '@shared/models'
+    ChatCanvasArtifact,
+    ChatImageAttachment,
+    ChatToolArtifact,
+    SessionMeta
+} from '@shared/models';
 import type {
-  AiChannelConfig,
-  AiChannelSettings,
-  ClipboardImagePayload,
-  InstalledSkillSummary,
-  PendingImageAttachment
-} from '@shared/types'
+    AiChannelConfig,
+    AiChannelSettings,
+    ClipboardImagePayload,
+    InstalledSkillSummary,
+    PendingImageAttachment
+} from '@shared/types';
 import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Compass,
-  FileCode2,
-  Link2,
-  LoaderCircle,
-  MessageSquare,
-  Monitor,
-  MoreHorizontal,
-  PanelRightOpen,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Search,
-  Send,
-  Sparkles,
-  Smartphone,
-  Square,
-  Trash2,
-  Wrench,
-  X,
-  Zap
-} from 'lucide-react'
+    Check,
+    ChevronDown,
+    ChevronRight,
+    FileCode2,
+    Link2,
+    LoaderCircle,
+    MessageSquare,
+    MoreHorizontal,
+    PanelRightOpen,
+    Pencil,
+    Plus,
+    Search,
+    Send,
+    Sparkles,
+    Square,
+    Trash2,
+    Wrench,
+    X,
+    Zap
+} from 'lucide-react';
 import {
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type Ref
-} from 'react'
-import { toast } from 'sonner'
+    useEffect,
+    useMemo,
+    useReducer,
+    useRef,
+    useState,
+    type ClipboardEvent,
+    type Ref
+} from 'react';
+import { toast } from 'sonner';
 import {
-  buildFeedbackKey,
-  copyAssistantMessage,
-  getLatestAssistantMessageId,
-  getRetryPromptForAssistant,
-  toggleAssistantFeedback,
-  type AssistantFeedback
-} from '../chat/messageActions'
+    buildFeedbackKey,
+    copyAssistantMessage,
+    getLatestAssistantMessageId,
+    getRetryPromptForAssistant,
+    toggleAssistantFeedback,
+    type AssistantFeedback
+} from '../chat/messageActions';
 import {
-  chatViewReducer,
-  createInitialChatViewState,
-  selectVisibleSessions,
-  type AssistantTranscriptEntry,
-  type SystemTranscriptEntry,
-  type ToolGroupView,
-  type TranscriptEntry,
-  type UserTranscriptEntry
-} from '../chat/reducer'
-import { AssistantMessageActions } from '../components/AssistantMessageActions'
-import { AssistantMessageMarkdown } from '../components/AssistantMessageMarkdown'
+    chatViewReducer,
+    createInitialChatViewState,
+    selectVisibleSessions,
+    type AssistantTranscriptEntry,
+    type SystemTranscriptEntry,
+    type ToolGroupView,
+    type TranscriptEntry,
+    type UserTranscriptEntry
+} from '../chat/reducer';
+import { AssistantMessageActions } from '../components/AssistantMessageActions';
+import { AssistantMessageMarkdown } from '../components/AssistantMessageMarkdown';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '../components/ui/dialog'
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
+} from '../components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '../components/ui/dropdown-menu'
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from '../components/ui/dropdown-menu';
+import {
+    CanvasPage,
+    type CanvasArtifactView,
+    type CanvasViewportMode
+} from './CanvasPage';
 
 const MAX_PENDING_IMAGES = 5
 const MAX_PENDING_IMAGE_BYTES = 8 * 1024 * 1024
@@ -106,15 +107,9 @@ type PendingComposerImage = PendingImageAttachment & {
   height: number
 }
 
-type CanvasViewportMode = 'desktop' | 'mobile'
-
-type CanvasArtifactView = {
-  artifact: ChatCanvasArtifact
-  toolCallId: string
-  toolName: string
-  outputSummary: string
-  assistantMessageId: string
-  timestamp: number
+type PendingPromptFile = {
+  filePath: string
+  fileName: string
 }
 
 const isCanvasArtifact = (artifact: ChatToolArtifact): artifact is ChatCanvasArtifact =>
@@ -218,6 +213,20 @@ const toFileSrc = (filePath: string): string => {
   return `file://${encoded.startsWith('/') ? '' : '/'}${encoded}`
 }
 
+const getFileNameFromPath = (filePath: string): string => {
+  const normalizedPath = filePath.replace(/\\/g, '/').replace(/\/+$/, '')
+  const maybeName = normalizedPath.split('/').pop()?.trim()
+  return maybeName || filePath
+}
+
+const prependPromptFilePath = (prompt: string, filePath: string): string => {
+  const header = `文件地址: ${filePath}`
+  if (!prompt.trim()) {
+    return header
+  }
+  return `${header}\n${prompt}`
+}
+
 const releasePendingImages = (images: PendingComposerImage[]): void => {
   for (const image of images) {
     if (image.previewUrl.startsWith('blob:')) {
@@ -316,124 +325,6 @@ const collectCanvasArtifacts = (transcript: TranscriptEntry[]): CanvasArtifactVi
       }))
     )
   })
-
-const CanvasPreviewPanel = ({
-  activeCanvas,
-  html,
-  isLoading,
-  error,
-  viewport,
-  iframeKey,
-  onViewportChange,
-  onReload
-}: {
-  activeCanvas: CanvasArtifactView | null
-  html: string
-  isLoading: boolean
-  error: string | null
-  viewport: CanvasViewportMode
-  iframeKey: string
-  onViewportChange: (viewport: CanvasViewportMode) => void
-  onReload: () => void
-}) => {
-  const frameWidthClassName = viewport === 'mobile' ? 'mx-auto w-[390px] max-w-full' : 'w-full'
-
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,246,249,0.96))]">
-      <div className="border-b border-[var(--border-soft)] px-4 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-              <FileCode2 className="h-4 w-4" />
-              Canvas
-            </div>
-            <div className="mt-2 truncate text-[17px] font-semibold text-[var(--ink-main)]">
-              {activeCanvas?.artifact.title ?? 'No canvas selected'}
-            </div>
-            <div className="mt-1 text-[12px] text-[var(--ink-soft)]">
-              {activeCanvas
-                ? `${activeCanvas.toolName} · ${formatClockTime(activeCanvas.timestamp)}`
-                : 'Run the canvas tool to preview generated HTML here.'}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onReload}
-            disabled={!activeCanvas || isLoading}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border-soft)] bg-white text-[var(--ink-subtle)] transition hover:bg-[#f1f1f4] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Reload canvas preview"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-
-        {activeCanvas ? (
-          <div className="mt-4 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onViewportChange('desktop')}
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
-                viewport === 'desktop'
-                  ? 'bg-[var(--ink-main)] text-white'
-                  : 'bg-white text-[var(--ink-subtle)] hover:bg-[#f1f1f4]'
-              }`}
-            >
-              <Monitor className="h-3.5 w-3.5" />
-              Desktop
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewportChange('mobile')}
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
-                viewport === 'mobile'
-                  ? 'bg-[var(--ink-main)] text-white'
-                  : 'bg-white text-[var(--ink-subtle)] hover:bg-[#f1f1f4]'
-              }`}
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              Mobile
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {!activeCanvas ? (
-          <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-[var(--border-soft)] bg-white/75 px-6 text-center text-[13px] leading-6 text-[var(--ink-soft)]">
-            The latest HTML canvas artifact will appear here.
-          </div>
-        ) : isLoading ? (
-          <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-[var(--border-soft)] bg-white/80 text-[13px] text-[var(--ink-soft)]">
-            Loading canvas preview…
-          </div>
-        ) : error ? (
-          <div className="rounded-[28px] border border-rose-200 bg-rose-50 px-5 py-4 text-[13px] leading-6 text-rose-700">
-            {error}
-          </div>
-        ) : (
-          <div className={`${frameWidthClassName} h-full`}>
-            <div className="overflow-hidden rounded-[28px] border border-[var(--border-soft)] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-              <div className="flex items-center gap-2 border-b border-[var(--border-soft)] px-4 py-3 text-[11px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#f97316]" />
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#10b981]" />
-                <span className="ml-2 truncate">{activeCanvas.artifact.fileName}</span>
-              </div>
-              <iframe
-                key={iframeKey}
-                title={activeCanvas.artifact.title}
-                sandbox="allow-scripts"
-                srcDoc={html}
-                className="h-[680px] w-full bg-white"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 const ToolGroupPanel = ({
   toolGroup,
@@ -876,6 +767,7 @@ const BootErrorState = ({ message }: { message: string }) => (
 const InputBar = ({
   draft,
   pendingImages,
+  pendingPromptFile,
   isRunning,
   isCancelling,
   currentSessionId,
@@ -891,11 +783,14 @@ const InputBar = ({
   onRemoveImage,
   onToggleSkill,
   onActiveChannelChange,
+  onPickPromptFile,
+  onRemovePromptFile,
   onSend,
   onCancel
 }: {
   draft: string
   pendingImages: PendingComposerImage[]
+  pendingPromptFile: PendingPromptFile | null
   isRunning: boolean
   isCancelling: boolean
   currentSessionId: string | null
@@ -911,6 +806,8 @@ const InputBar = ({
   onRemoveImage: (id: string) => void
   onToggleSkill: (skillId: string) => void
   onActiveChannelChange: (channelId: string) => void
+  onPickPromptFile: () => void
+  onRemovePromptFile: () => void
   onSend: () => void
   onCancel: () => void
 }) => {
@@ -962,6 +859,24 @@ const InputBar = ({
           allowRemove
           onRemove={onRemoveImage}
         />
+      ) : null}
+      {pendingPromptFile ? (
+        <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-[16px] bg-[#1e2126] px-2.5 py-1.5 text-white shadow-[0_8px_24px_rgba(15,23,42,0.22)]">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-[10px] bg-[#1570ff] text-white">
+            <FileCode2 className="h-4 w-4" />
+          </span>
+          <span className="max-w-[360px] truncate text-[13px] font-medium">
+            {pendingPromptFile.fileName}
+          </span>
+          <button
+            type="button"
+            onClick={onRemovePromptFile}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-white/85 transition hover:bg-white/10 hover:text-white"
+            aria-label="移除已上传文件"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       ) : null}
       <textarea
         ref={textareaRef}
@@ -1122,20 +1037,22 @@ const InputBar = ({
           </DropdownMenu>
           <button
             type="button"
+            onClick={onPickPromptFile}
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#ececf1] px-3.5 text-[12.5px] font-medium text-[#4e505a] transition hover:bg-[#e4e4eb] hover:text-[var(--ink-main)]"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#8f919c]">
-              <Compass className="h-4 w-4" />
+              {/* <Upload className="h-4 w-4" /> */}
+              <Link2 className="h-4 w-4" />
             </span>
-            找灵感
+            上传文件
           </button>
-          <button
+          {/* <button
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#ececf1] text-[#6d707c] transition hover:bg-[#e4e4eb] hover:text-[var(--ink-main)]"
             aria-label="关联内容"
           >
             <Link2 className="h-4 w-4" />
-          </button>
+          </button> */}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1155,7 +1072,9 @@ const InputBar = ({
             type="button"
             onClick={onSend}
             disabled={
-              (!draft.trim() && pendingImages.length === 0) || isRunning || !currentSessionId
+              (!draft.trim() && pendingImages.length === 0 && !pendingPromptFile) ||
+              isRunning ||
+              !currentSessionId
             }
             className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1f1f23] text-white transition hover:bg-[#2b2b31] disabled:cursor-not-allowed disabled:bg-[#e8e8ee] disabled:text-[#b8bac3]"
             aria-label="发送消息"
@@ -1171,6 +1090,7 @@ const InputBar = ({
 const EmptyState = ({
   draft,
   pendingImages,
+  pendingPromptFile,
   isRunning,
   isCancelling,
   currentSessionId,
@@ -1186,11 +1106,14 @@ const EmptyState = ({
   onRemoveImage,
   onToggleSkill,
   onActiveChannelChange,
+  onPickPromptFile,
+  onRemovePromptFile,
   onSend,
   onCancel
 }: {
   draft: string
   pendingImages: PendingComposerImage[]
+  pendingPromptFile: PendingPromptFile | null
   isRunning: boolean
   isCancelling: boolean
   currentSessionId: string | null
@@ -1206,6 +1129,8 @@ const EmptyState = ({
   onRemoveImage: (id: string) => void
   onToggleSkill: (skillId: string) => void
   onActiveChannelChange: (channelId: string) => void
+  onPickPromptFile: () => void
+  onRemovePromptFile: () => void
   onSend: () => void
   onCancel: () => void
 }) => (
@@ -1217,6 +1142,7 @@ const EmptyState = ({
       <InputBar
         draft={draft}
         pendingImages={pendingImages}
+        pendingPromptFile={pendingPromptFile}
         isRunning={isRunning}
         isCancelling={isCancelling}
         currentSessionId={currentSessionId}
@@ -1232,6 +1158,8 @@ const EmptyState = ({
         onRemoveImage={onRemoveImage}
         onToggleSkill={onToggleSkill}
         onActiveChannelChange={onActiveChannelChange}
+        onPickPromptFile={onPickPromptFile}
+        onRemovePromptFile={onRemovePromptFile}
         onSend={onSend}
         onCancel={onCancel}
       />
@@ -1255,6 +1183,7 @@ export const ChatPage = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [pendingImages, setPendingImages] = useState<PendingComposerImage[]>([])
+  const [pendingPromptFile, setPendingPromptFile] = useState<PendingPromptFile | null>(null)
   const [isBooting, setIsBooting] = useState(true)
   const [bootError, setBootError] = useState<string | null>(null)
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null)
@@ -1804,16 +1733,21 @@ export const ChatPage = () => {
     message: string,
     attachments: PendingComposerImage[],
     skills: string[],
-    options?: { clearComposer?: boolean }
+    options?: { clearComposer?: boolean; pendingPromptFile?: PendingPromptFile | null }
   ): Promise<void> => {
-    if ((!message.trim() && attachments.length === 0) || state.isRunning) return
+    const promptWithFile = options?.pendingPromptFile
+      ? prependPromptFilePath(message, options.pendingPromptFile.filePath)
+      : message
+
+    if ((!promptWithFile.trim() && attachments.length === 0) || state.isRunning) return
 
     chatImageDebug('sendMessage request', {
       sessionId,
-      textLength: message.length,
+      textLength: promptWithFile.length,
       attachmentCount: attachments.length,
       skillCount: skills.length,
       skills,
+      promptFilePath: options?.pendingPromptFile?.filePath ?? null,
       attachments: attachments.map((attachment) => ({
         id: attachment.id,
         fileName: attachment.fileName,
@@ -1827,13 +1761,14 @@ export const ChatPage = () => {
     if (options?.clearComposer) {
       setDraft('')
       setPendingImages([])
+      setPendingPromptFile(null)
     }
 
     dispatch({ type: 'run.requested' })
 
     try {
       await window.context.sendMessage(sessionId, {
-        text: message,
+        text: promptWithFile,
         skills,
         attachments: attachments.map(({ id, fileName, mimeType, dataBase64, sizeBytes }) => ({
           id,
@@ -1869,6 +1804,7 @@ export const ChatPage = () => {
       if (options?.clearComposer) {
         setDraft(message)
         setPendingImages(attachments)
+        setPendingPromptFile(options.pendingPromptFile ?? null)
       }
 
       dispatch({
@@ -1887,8 +1823,29 @@ export const ChatPage = () => {
   const handleSend = async (): Promise<void> => {
     if (!currentSessionId) return
     await runMessage(currentSessionId, draft, pendingImages, selectedSkillIds, {
-      clearComposer: true
+      clearComposer: true,
+      pendingPromptFile
     })
+  }
+
+  const handlePickPromptFile = async (): Promise<void> => {
+    try {
+      const filePath = await window.context.pickPromptFilePath()
+      if (!filePath) {
+        return
+      }
+
+      setPendingPromptFile({
+        filePath,
+        fileName: getFileNameFromPath(filePath)
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '选择文件失败，请重试。')
+    }
+  }
+
+  const handleRemovePromptFile = (): void => {
+    setPendingPromptFile(null)
   }
 
   const insertTextAtComposerSelection = (text: string): void => {
@@ -2288,7 +2245,11 @@ export const ChatPage = () => {
       </aside>
 
       <section className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--content-bg)]">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${
+            activeCanvas ? 'xl:w-1/2 xl:basis-1/2 xl:shrink-0' : 'flex-1'
+          }`}
+        >
           <div
             ref={transcriptRef}
             className={`min-h-0 flex-1 overflow-y-auto px-2 ${hasTranscript ? 'pb-2' : ''}`}
@@ -2351,6 +2312,7 @@ export const ChatPage = () => {
               <EmptyState
                 draft={draft}
                 pendingImages={pendingImages}
+                pendingPromptFile={pendingPromptFile}
                 isRunning={state.isRunning}
                 isCancelling={state.isCancelling}
                 currentSessionId={currentSessionId}
@@ -2366,6 +2328,8 @@ export const ChatPage = () => {
                 onRemoveImage={removePendingImage}
                 onToggleSkill={toggleSkillSelection}
                 onActiveChannelChange={(channelId) => void handleActiveChannelChange(channelId)}
+                onPickPromptFile={() => void handlePickPromptFile()}
+                onRemovePromptFile={handleRemovePromptFile}
                 onSend={() => void handleSend()}
                 onCancel={() => void handleCancel()}
               />
@@ -2378,6 +2342,7 @@ export const ChatPage = () => {
                 <InputBar
                   draft={draft}
                   pendingImages={pendingImages}
+                  pendingPromptFile={pendingPromptFile}
                   isRunning={state.isRunning}
                   isCancelling={state.isCancelling}
                   currentSessionId={currentSessionId}
@@ -2393,6 +2358,8 @@ export const ChatPage = () => {
                   onRemoveImage={removePendingImage}
                   onToggleSkill={toggleSkillSelection}
                   onActiveChannelChange={(channelId) => void handleActiveChannelChange(channelId)}
+                  onPickPromptFile={() => void handlePickPromptFile()}
+                  onRemovePromptFile={handleRemovePromptFile}
                   onSend={() => void handleSend()}
                   onCancel={() => void handleCancel()}
                 />
@@ -2402,8 +2369,8 @@ export const ChatPage = () => {
         </div>
 
         {activeCanvas ? (
-          <aside className="hidden w-[420px] shrink-0 border-l border-[var(--border-soft)] xl:flex">
-            <CanvasPreviewPanel
+          <aside className="hidden min-w-0 border-l border-[var(--border-soft)] xl:block xl:w-1/2 xl:basis-1/2 xl:shrink-0">
+            <CanvasPage
               activeCanvas={activeCanvas}
               html={canvasPreviewHtml}
               isLoading={isCanvasPreviewLoading}
@@ -2427,7 +2394,7 @@ export const ChatPage = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="h-[85vh] overflow-hidden rounded-[32px] border border-[var(--border-soft)] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)] xl:hidden">
-              <CanvasPreviewPanel
+              <CanvasPage
                 activeCanvas={activeCanvas}
                 html={canvasPreviewHtml}
                 isLoading={isCanvasPreviewLoading}

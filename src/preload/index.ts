@@ -19,6 +19,7 @@ import type {
   ListSessions,
   OpenSession,
   PauseCronJob,
+  PickPromptFilePath,
   ReadClipboardImage,
   ReadCanvasArtifactHtml,
   ResolveChatAttachmentDataUrl,
@@ -114,6 +115,8 @@ try {
       invoke<Awaited<ReturnType<SendMessage>>>('chat:sendMessage', ...args),
     readClipboardImage: (...args: Parameters<ReadClipboardImage>) =>
       invoke<Awaited<ReturnType<ReadClipboardImage>>>('chat:readClipboardImage', ...args),
+    pickPromptFilePath: (...args: Parameters<PickPromptFilePath>) =>
+      invoke<Awaited<ReturnType<PickPromptFilePath>>>('chat:pickPromptFilePath', ...args),
     resolveChatAttachmentDataUrl: (...args: Parameters<ResolveChatAttachmentDataUrl>) =>
       invoke<Awaited<ReturnType<ResolveChatAttachmentDataUrl>>>(
         'chat:resolveAttachmentDataUrl',

@@ -41,6 +41,7 @@ export interface ClipboardImagePayload {
   height: number
 }
 export type ReadClipboardImage = () => Promise<ClipboardImagePayload | null>
+export type PickPromptFilePath = () => Promise<string | null>
 export type ResolveChatAttachmentDataUrl = (
   filePath: string,
   mimeType: ChatImageAttachment['mimeType']

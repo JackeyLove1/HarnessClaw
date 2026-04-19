@@ -11,6 +11,7 @@ import type {
   ListCronJobs,
   ListCronRuns,
   ListInstalledSkills,
+  PickPromptFilePath,
   ListSkillUsageRecords,
   ListToolCallRecords,
   ListToolStats,
@@ -28,7 +29,7 @@ import type {
   UpdateCronJob,
   WriteNote
 } from '@shared/types'
-import { BrowserWindow, app, clipboard, ipcMain, powerMonitor, shell } from 'electron'
+import { BrowserWindow, app, clipboard, dialog, ipcMain, powerMonitor, shell } from 'electron'
 import { join, relative, resolve } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import icon from '../../resources/icon.png?asset'
@@ -323,6 +324,25 @@ function registerChatIpc(): void {
     }
   )
   ipcMain.handle('chat:readClipboardImage', () => readClipboardImage())
+  ipcMain.handle(
+    'chat:pickPromptFilePath',
+    async (_event, ..._args: Parameters<PickPromptFilePath>) => {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        return null
+      }
+
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择要附加到提示词的文件',
+        properties: ['openFile']
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+
+      return result.filePaths[0] ?? null
+    }
+  )
   ipcMain.handle(
     'chat:resolveAttachmentDataUrl',
     (_event, filePath: string, mimeType: ClipboardImagePayload['mimeType']) =>
