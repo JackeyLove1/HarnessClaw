@@ -1,48 +1,53 @@
 import type {
-  GetAiChannelSettings,
-  CancelRun,
-  CreateNote,
-  CreateCronJob,
-  CreateSession,
-  DeleteSession,
-  DeleteNote,
-  GetNotes,
-  GetUsageOverview,
-  ListCronJobs,
-  ListCronRuns,
-  ListInstalledSkills,
-  ListSkillUsageRecords,
-  ListSkills,
-  SearchSkills,
-  InstallSkill,
-  ListToolCallRecords,
-  ListToolStats,
-  ListUsageRecords,
-  ListSessions,
-  OpenSession,
-  PauseCronJob,
-  PickPromptFilePath,
-  ReadClipboardImage,
-  ReadCanvasArtifactHtml,
-  ResolveChatAttachmentDataUrl,
-  ReadNote,
-  RemoveCronJob,
-  ResumeCronJob,
-  RunCronJob,
-  SaveAiChannelSettings,
-  SearchSessions,
-  SendMessage,
-  SetActiveAiChannel,
-  SubscribeChatEvents,
-  TestAiChannelConnection,
-  UpdateCronJob,
-  UpdateSessionTitle,
-  WindowClose,
-  WindowIsMaximized,
-  WindowMinimize,
-  WindowToggleMaximize,
-  WriteNote
-} from '@shared/types'
+    CancelRun,
+    CreateCronJob,
+    CreateNote,
+    CreateSession,
+    DeleteNote,
+    DeleteSession,
+    DisconnectWeixinGatewayAccount,
+    GetAiChannelSettings,
+    GetNotes,
+    GetUsageOverview,
+    GetWeixinGatewayHealth,
+    InstallSkill,
+    ListCronJobs,
+    ListCronRuns,
+    ListInstalledSkills,
+    ListSessions,
+    ListSkillUsageRecords,
+    ListSkills,
+    ListToolCallRecords,
+    ListToolStats,
+    ListUsageRecords,
+    ListWeixinGatewayAccounts,
+    OpenSession,
+    PauseCronJob,
+    PickPromptFilePath,
+    ReadCanvasArtifactHtml,
+    ReadClipboardImage,
+    ReadNote,
+    RemoveCronJob,
+    ResolveChatAttachmentDataUrl,
+    ResumeCronJob,
+    RunCronJob,
+    SaveAiChannelSettings,
+    SearchSessions,
+    SearchSkills,
+    SendMessage,
+    SetActiveAiChannel,
+    StartWeixinQrLogin,
+    SubscribeChatEvents,
+    TestAiChannelConnection,
+    UpdateCronJob,
+    UpdateSessionTitle,
+    WaitWeixinQrLogin,
+    WindowClose,
+    WindowIsMaximized,
+    WindowMinimize,
+    WindowToggleMaximize,
+    WriteNote
+} from '@shared/types';
 
 declare global {
   interface Window {
@@ -74,6 +79,11 @@ declare global {
       saveAiChannelSettings: SaveAiChannelSettings
       setActiveAiChannel: SetActiveAiChannel
       testAiChannelConnection: TestAiChannelConnection
+      listWeixinGatewayAccounts: ListWeixinGatewayAccounts
+      startWeixinQrLogin: StartWeixinQrLogin
+      waitWeixinQrLogin: WaitWeixinQrLogin
+      disconnectWeixinGatewayAccount: DisconnectWeixinGatewayAccount
+      getWeixinGatewayHealth: GetWeixinGatewayHealth
       getUsageOverview: GetUsageOverview
       listUsageRecords: ListUsageRecords
       listToolCallRecords: ListToolCallRecords
@@ -95,4 +105,4 @@ declare global {
   }
 }
 
-export {}
+export {};

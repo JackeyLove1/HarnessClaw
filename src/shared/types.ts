@@ -1,12 +1,12 @@
 import type {
-  ChatEvent,
-  ChatCanvasArtifact,
-  ChatImageAttachment,
-  NoteContent,
-  NoteInfo,
-  SessionMeta,
-  SessionSnapshot
-} from './models'
+    ChatCanvasArtifact,
+    ChatEvent,
+    ChatImageAttachment,
+    NoteContent,
+    NoteInfo,
+    SessionMeta,
+    SessionSnapshot
+} from './models';
 
 export type GetNotes = () => Promise<NoteInfo[]>
 export type ReadNote = (title: NoteInfo['title']) => Promise<NoteContent>
@@ -160,6 +160,31 @@ export interface ConnectionCheckResult {
   preview: string
 }
 
+export interface WeixinGatewayAccount {
+  accountId: string
+  baseUrl: string
+  token: string
+  routeTag: string
+  channelVersion: string
+  enabled: boolean
+  connectedAt: number
+}
+
+export interface WeixinQrStartResult {
+  sessionKey: string
+  qrCodeUrl: string | null
+  message: string
+}
+
+export interface WeixinQrWaitResult {
+  connected: boolean
+  accountId: string | null
+  baseUrl: string | null
+  token: string | null
+  userId: string | null
+  message: string
+}
+
 export type UsageRecordKind = 'chat_turn' | 'title_gen' | 'connection_test' | 'session_memory'
 
 export interface UsageOverview {
@@ -256,6 +281,28 @@ export type SetActiveAiChannel = (
   channelId: AiChannelConfig['id'] | null
 ) => Promise<AiChannelSettings>
 export type TestAiChannelConnection = (channel: AiChannelConfig) => Promise<ConnectionCheckResult>
+export type ListWeixinGatewayAccounts = () => Promise<WeixinGatewayAccount[]>
+export type StartWeixinQrLogin = (input?: {
+  accountId?: string
+  force?: boolean
+  timeoutMs?: number
+}) => Promise<WeixinQrStartResult>
+export type WaitWeixinQrLogin = (input: {
+  sessionKey: string
+  timeoutMs?: number
+}) => Promise<WeixinQrWaitResult>
+export type DisconnectWeixinGatewayAccount = (accountId: string) => Promise<void>
+export type GetWeixinGatewayHealth = () => Promise<
+  Array<{
+    accountId: string
+    status: 'idle' | 'running' | 'paused' | 'error' | 'stopped'
+    lastEventAt: number | null
+    lastInboundAt: number | null
+    lastError: string | null
+    consecutiveFailures: number
+    pausedUntil: number | null
+  }>
+>
 export type GetUsageOverview = () => Promise<UsageOverview>
 export type ListUsageRecords = (limit?: number) => Promise<UsageRecord[]>
 export type ListToolCallRecords = (limit?: number) => Promise<ToolCallUsageRecord[]>

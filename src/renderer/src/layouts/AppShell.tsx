@@ -3,6 +3,7 @@ import {
   CircleHelp,
   MessageCircleMore,
   MonitorSmartphone,
+  QrCode,
   Settings,
   Sparkles
 } from 'lucide-react'
@@ -70,6 +71,11 @@ export const AppShell = () => {
                   label="任务"
                   to="/tasks"
                   icon={<CircleCheckBig className={navIconClassName} />}
+                />
+                <NavRailLink
+                  label="渠道"
+                  to="/channels"
+                  icon={<QrCode className={navIconClassName} />}
                 />
                 <NavRailLink
                   label="技能"

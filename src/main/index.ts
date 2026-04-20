@@ -1,59 +1,77 @@
-import { createNote, deleteNote, getNotes, readNote, writeNote } from './lib'
-import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import type {
-  GetAiChannelSettings,
-  ClipboardImagePayload,
-  CreateNote,
-  CreateCronJob,
-  DeleteNote,
-  GetUsageOverview,
-  GetNotes,
-  ListCronJobs,
-  ListCronRuns,
-  ListInstalledSkills,
-  PickPromptFilePath,
-  ListSkillUsageRecords,
-  ListToolCallRecords,
-  ListToolStats,
-  ListUsageRecords,
-  SendMessage,
-  PauseCronJob,
-  ReadCanvasArtifactHtml,
-  ReadNote,
-  RemoveCronJob,
-  ResumeCronJob,
-  RunCronJob,
-  SaveAiChannelSettings,
-  SetActiveAiChannel,
-  TestAiChannelConnection,
-  UpdateCronJob,
-  WriteNote
-} from '@shared/types'
-import { BrowserWindow, app, clipboard, dialog, ipcMain, powerMonitor, shell } from 'electron'
-import { join, relative, resolve } from 'node:path'
-import { readFile } from 'node:fs/promises'
-import icon from '../../resources/icon.png?asset'
-import { CronScheduler, CronService, setCronService } from './agent/cron'
-import { ChatSupervisor } from './chat/supervisor'
-import { readCanvasArtifactHtml } from './chat/canvas-artifacts'
+    ClipboardImagePayload,
+    CreateCronJob,
+    CreateNote,
+    DeleteNote,
+    DisconnectWeixinGatewayAccount,
+    GetAiChannelSettings,
+    GetNotes,
+    GetUsageOverview,
+    GetWeixinGatewayHealth,
+    ListCronJobs,
+    ListCronRuns,
+    ListInstalledSkills,
+    ListSkillUsageRecords,
+    ListToolCallRecords,
+    ListToolStats,
+    ListUsageRecords,
+    ListWeixinGatewayAccounts,
+    PauseCronJob,
+    PickPromptFilePath,
+    ReadCanvasArtifactHtml,
+    ReadNote,
+    RemoveCronJob,
+    ResumeCronJob,
+    RunCronJob,
+    SaveAiChannelSettings,
+    SendMessage,
+    SetActiveAiChannel,
+    StartWeixinQrLogin,
+    TestAiChannelConnection,
+    UpdateCronJob,
+    WaitWeixinQrLogin,
+    WriteNote
+} from '@shared/types';
+import { BrowserWindow, app, clipboard, dialog, ipcMain, powerMonitor, shell } from 'electron';
+import { readFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
+import icon from '../../resources/icon.png?asset';
+import { CronScheduler, CronService, setCronService } from './agent/cron';
 import {
-  getAiChannelSettings,
-  hydrateAiChannelSettings,
-  saveAiChannelSettings,
-  setActiveAiChannel,
-  testAiChannelConnection
-} from './lib/ai-channel-settings'
-import { initDatabase } from './lib/database'
-import { runPreInstallScript } from './lib/script-runner'
+    WeixinChannelAdapter,
+    createAgentGatewayOrchestrator,
+    type AgentGatewayOrchestrator
+} from './agent/gateway';
 import {
-  loadInstalledSkillsFromDir,
-  seedBundledSkillsIntoUserDir
-} from './agent/skills/loadSkillsDir'
+    loadInstalledSkillsFromDir,
+    seedBundledSkillsIntoUserDir
+} from './agent/skills/loadSkillsDir';
+import { readCanvasArtifactHtml } from './chat/canvas-artifacts';
+import { ChatSupervisor } from './chat/supervisor';
+import { createNote, deleteNote, getNotes, readNote, writeNote } from './lib';
+import {
+    getAiChannelSettings,
+    hydrateAiChannelSettings,
+    saveAiChannelSettings,
+    setActiveAiChannel,
+    testAiChannelConnection
+} from './lib/ai-channel-settings';
+import { initDatabase } from './lib/database';
+import { runPreInstallScript } from './lib/script-runner';
+import {
+    listWeixinGatewayAccounts,
+    removeWeixinGatewayAccount,
+    startWeixinQrLogin,
+    upsertWeixinGatewayAccount,
+    waitWeixinQrLogin
+} from './lib/weixin-channel-settings';
 
 let mainWindow: BrowserWindow | null = null
 let chatSupervisor: ChatSupervisor | null = null
 let cronService: CronService | null = null
 let cronScheduler: CronScheduler | null = null
+let agentGateway: AgentGatewayOrchestrator | null = null
 
 const toErrorText = (error: unknown): string => {
   if (error instanceof Error) {
@@ -449,6 +467,80 @@ function registerSettingsIpc(): void {
   )
 }
 
+function registerWeixinChannelIpc(): void {
+  ipcMain.handle('weixin:listAccounts', async (_, ..._args: Parameters<ListWeixinGatewayAccounts>) =>
+    listWeixinGatewayAccounts()
+  )
+  ipcMain.handle('weixin:qrStart', async (_, ...args: Parameters<StartWeixinQrLogin>) =>
+    startWeixinQrLogin(args[0])
+  )
+  ipcMain.handle('weixin:qrWait', async (_, ...args: Parameters<WaitWeixinQrLogin>) => {
+    const result = await waitWeixinQrLogin(args[0])
+    if (!result.connected) {
+      return result
+    }
+
+    if (!result.accountId || !result.baseUrl || !result.token) {
+      return {
+        ...result,
+        connected: false,
+        message: '扫码成功但返回账号信息不完整，请重试。'
+      }
+    }
+
+    const existing = await listWeixinGatewayAccounts()
+    const previous = existing.find((account) => account.accountId === result.accountId)
+    await upsertWeixinGatewayAccount({
+      accountId: result.accountId,
+      baseUrl: result.baseUrl,
+      token: result.token,
+      routeTag: previous?.routeTag ?? '',
+      channelVersion: previous?.channelVersion ?? '',
+      enabled: true,
+      connectedAt: Date.now()
+    })
+
+    if (!agentGateway) {
+      throw new Error('Agent gateway is not initialized.')
+    }
+
+    await agentGateway.startAccount({
+      channel: 'weixin',
+      accountId: result.accountId,
+      token: result.token,
+      config: {
+        baseUrl: result.baseUrl,
+        routeTag: previous?.routeTag ?? '',
+        channelVersion: previous?.channelVersion ?? ''
+      }
+    })
+
+    return result
+  })
+  ipcMain.handle(
+    'weixin:disconnect',
+    async (_, ...args: Parameters<DisconnectWeixinGatewayAccount>) => {
+      const accountId = args[0].trim()
+      await removeWeixinGatewayAccount(accountId)
+      await agentGateway?.stopAccount('weixin', accountId)
+    }
+  )
+  ipcMain.handle('weixin:health', async (_, ..._args: Parameters<GetWeixinGatewayHealth>) => {
+    const snapshots = agentGateway?.health() ?? []
+    return snapshots
+      .filter((snapshot) => snapshot.channel === 'weixin')
+      .map((snapshot) => ({
+        accountId: snapshot.accountId,
+        status: snapshot.status,
+        lastEventAt: snapshot.lastEventAt,
+        lastInboundAt: snapshot.lastInboundAt,
+        lastError: snapshot.lastError,
+        consecutiveFailures: snapshot.consecutiveFailures,
+        pausedUntil: snapshot.pausedUntil
+      }))
+  })
+}
+
 function registerCronIpc(): void {
   if (!cronService) {
     throw new Error('Cron service is not initialized.')
@@ -480,7 +572,7 @@ function registerCronIpc(): void {
   )
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.deepclaw.notemark')
 
   app.on('browser-window-created', (_, window) => {
@@ -507,6 +599,53 @@ app.whenReady().then(() => {
       console.error('Failed to hydrate active AI channel settings', error)
     })
     chatSupervisor = new ChatSupervisor()
+    agentGateway = createAgentGatewayOrchestrator({
+      supervisor: chatSupervisor,
+      log: (level, message, data) => console[level](`[agent-gateway] ${message}`, data)
+    })
+    agentGateway.registerAdapter(
+      new WeixinChannelAdapter({
+        stateDir: app.getPath('userData')
+      })
+    )
+    try {
+      const persistedAccounts = await listWeixinGatewayAccounts()
+      for (const account of persistedAccounts) {
+        if (!account.enabled) {
+          continue
+        }
+        await agentGateway.startAccount({
+          channel: 'weixin',
+          accountId: account.accountId,
+          token: account.token,
+          config: {
+            baseUrl: account.baseUrl,
+            routeTag: account.routeTag,
+            channelVersion: account.channelVersion
+          }
+        })
+      }
+    } catch (error) {
+      console.error('[agent-gateway] failed to restore persisted weixin accounts', error)
+    }
+    const weixinBaseUrl = process.env.NOTEMARK_WEIXIN_BASE_URL?.trim()
+    if (weixinBaseUrl) {
+      try {
+        await agentGateway.startAccount({
+          channel: 'weixin',
+          accountId: process.env.NOTEMARK_WEIXIN_ACCOUNT_ID?.trim() || 'default',
+          token: process.env.NOTEMARK_WEIXIN_TOKEN?.trim(),
+          config: {
+            baseUrl: weixinBaseUrl,
+            routeTag: process.env.NOTEMARK_WEIXIN_ROUTE_TAG?.trim(),
+            channelVersion: process.env.NOTEMARK_WEIXIN_CHANNEL_VERSION?.trim()
+          }
+        })
+      } catch (error) {
+        console.error('[agent-gateway] failed to bootstrap weixin account', error)
+      }
+    }
+
     cronService.setOriginSessionPublisher(async (sessionId, payload) => {
       if (!chatSupervisor) {
         return
@@ -537,6 +676,7 @@ app.whenReady().then(() => {
     registerNoteIpc()
     registerChatIpc()
     registerSettingsIpc()
+    registerWeixinChannelIpc()
     registerCronIpc()
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -572,6 +712,7 @@ process.on('unhandledRejection', (reason) => {
 })
 
 app.on('window-all-closed', () => {
+  void agentGateway?.stopAll()
   cronScheduler?.stop()
   if (process.platform !== 'darwin') {
     app.quit()
